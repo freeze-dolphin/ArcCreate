@@ -53,6 +53,8 @@ namespace ArcCreate.Gameplay.Data
 
         public float ArcCapSize => IsTrace ? Values.TraceCapSize : Values.ArcCapSize;
 
+        public Matrix4x4 ArcCapMatrix;
+
         public bool IsFirstArcOfGroup => PreviousArc == null;
 
         public bool IsFirstArcOfBranch => PreviousArc == null || PreviousArc.NextArc != this;
@@ -191,6 +193,8 @@ namespace ArcCreate.Gameplay.Data
                 groupProperties.FallDirection,
                 z,
                 groupProperties.NoClip);
+
+            ArcCapMatrix = arcCapMatrix;
 
             for (int i = 0; i < segments.Count; i++)
             {
