@@ -7,6 +7,17 @@ namespace ArcCreate.Gameplay.Judgement.Input
 {
     public class ControllerInputHandler : IInputHandler
     {
+        private static void DebugKeyPressed()
+        {
+            foreach (KeyCode keyCode in Enum.GetValues(typeof(KeyCode)))
+            {
+                if (UnityEngine.Input.GetKeyDown(keyCode))
+                {
+                    Debug.Log("Pressed: " + keyCode);
+                }
+            }
+        }
+
         public record JoyconArcInputState
         {
             public record JoyconSingleArcInputState
@@ -39,17 +50,98 @@ namespace ArcCreate.Gameplay.Judgement.Input
             }
         }
 
+        public static bool AddIfNotExists<T>(List<T> list, T value)
+        {
+            if (!list.Contains(value))
+            {
+                list.Add(value);
+                return true;
+            }
+
+            return false;
+        }
+
+        public record DPadInputState
+        {
+            public record DPadSingleInputState
+            {
+                public bool JustClicked { get; set; }
+                public float PreviousValue { get; set; }
+
+                public DPadSingleInputState(bool justClicked, float prev)
+                {
+                    JustClicked = justClicked;
+                    PreviousValue = prev;
+                }
+            }
+
+            public DPadSingleInputState Lane1 { get; }
+            public DPadSingleInputState Lane2 { get; }
+            public DPadSingleInputState Lane3 { get; }
+            public DPadSingleInputState Lane4 { get; }
+
+            public DPadInputState()
+            {
+                Lane1 = new DPadSingleInputState(false, 0);
+                Lane2 = new DPadSingleInputState(false, 0);
+                Lane3 = new DPadSingleInputState(false, 0);
+                Lane4 = new DPadSingleInputState(false, 0);
+            }
+
+            public void Update(DPadSingleInputState lane, float dPadInput)
+            {
+                lane.JustClicked = dPadInput != lane.PreviousValue;
+                lane.PreviousValue = dPadInput;
+            }
+        }
+
+        public enum TapSide
+        {
+            Left,
+            Right,
+            Undefined
+        }
+
+        public static TapSide FromLaneIndex(int lane)
+        {
+            return lane switch
+            {
+                >= 0 and <= 2 => TapSide.Left,
+                <= 5 => TapSide.Right,
+                _ => TapSide.Undefined
+            };
+        }
+
+        public static void LaneFeedback(TapSide side, int timing)
+        {
+            var enwidened =
+                Services.Scenecontrol.Scene.Track.ExtraL.ColorA.ValueAt(timing) >= 200 &&
+                Services.Scenecontrol.Scene.Track.ExtraR.ColorA.ValueAt(timing) >= 200;
+            switch (side)
+            {
+                case TapSide.Left:
+                    Services.InputFeedback.LaneFeedback(1);
+                    Services.InputFeedback.LaneFeedback(2);
+                    if (enwidened) Services.InputFeedback.LaneFeedback(0);
+                    break;
+                case TapSide.Right:
+                    Services.InputFeedback.LaneFeedback(3);
+                    Services.InputFeedback.LaneFeedback(4);
+                    if (enwidened) Services.InputFeedback.LaneFeedback(5);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(side), side, null);
+            }
+        }
+
         protected List<int> CurrentLaneDownInputs = new(4);
         protected List<int> CurrentLaneContinualInputs = new(4);
         protected List<bool> CurrentArctapInputs = new(2);
         protected JoyconArcInputState CurrentArcInputs = new(0, 0, 0, 0);
+        protected DPadInputState CurrentDPadInputs = new();
 
-        private double arcJudgementThreshold = 90;
-
-        private bool lane1JustClicked;
-        private float prevLane1;
-        private bool lane2JustClicked;
-        private float prevLane2;
+        private static double arcJudgementThreshold = 45.0;
+        private static double joystickSensibility = 0.125;
 
         public void PollInput()
         {
@@ -58,37 +150,55 @@ namespace ArcCreate.Gameplay.Judgement.Input
             CurrentArctapInputs.Clear();
             CurrentArcInputs.Reset();
 
+            // Arc Input from Joysticks
             CurrentArcInputs.Left.Horizontal = UnityEngine.Input.GetAxis("Left Horizontal");
             CurrentArcInputs.Left.Vertical = UnityEngine.Input.GetAxis("Left Vertical");
             CurrentArcInputs.Right.Horizontal = UnityEngine.Input.GetAxis("Right Horizontal");
             CurrentArcInputs.Right.Vertical = UnityEngine.Input.GetAxis("Right Vertical");
 
-            float lane1 = UnityEngine.Input.GetAxis("Lane 1");
-            float lane2 = UnityEngine.Input.GetAxis("Lane 2");
+            // Update D-Pad Input
+            float dPadLane1Input = UnityEngine.Input.GetAxis("Lane 1");
+            float dPadLane2Input = UnityEngine.Input.GetAxis("Lane 2");
+            float dPadLane3AlternateInput = -dPadLane1Input;
+            float dPadLane4AlternateInput = -dPadLane2Input;
 
-            lane1JustClicked = lane1 != prevLane1;
-            lane2JustClicked = lane2 != prevLane2;
+            CurrentDPadInputs.Update(CurrentDPadInputs.Lane1, dPadLane1Input);
+            CurrentDPadInputs.Update(CurrentDPadInputs.Lane2, dPadLane2Input);
+            CurrentDPadInputs.Update(CurrentDPadInputs.Lane3, dPadLane3AlternateInput);
+            CurrentDPadInputs.Update(CurrentDPadInputs.Lane4, dPadLane4AlternateInput);
 
-            if (lane1JustClicked && lane1 < 0) CurrentLaneDownInputs.Add(1);
-            if (lane2JustClicked && lane2 > 0) CurrentLaneDownInputs.Add(2);
-            if (UnityEngine.Input.GetButtonDown("Lane 3")) CurrentLaneDownInputs.Add(3);
-            if (UnityEngine.Input.GetButtonDown("Lane 4")) CurrentLaneDownInputs.Add(4);
+            // Normal Button
+            if (CurrentDPadInputs.Lane1.JustClicked && dPadLane1Input < 0) AddIfNotExists(CurrentLaneDownInputs, 1);
+            if (CurrentDPadInputs.Lane2.JustClicked && dPadLane2Input > 0) AddIfNotExists(CurrentLaneDownInputs, 2);
+            if (UnityEngine.Input.GetButtonDown("Lane 3")) AddIfNotExists(CurrentLaneDownInputs, 3);
+            if (UnityEngine.Input.GetButtonDown("Lane 4")) AddIfNotExists(CurrentLaneDownInputs, 4);
 
-            if (lane1 < 0) CurrentLaneContinualInputs.Add(1);
-            if (lane2 > 0) CurrentLaneContinualInputs.Add(2);
-            if (UnityEngine.Input.GetButton("Lane 3")) CurrentLaneContinualInputs.Add(3);
-            if (UnityEngine.Input.GetButton("Lane 4")) CurrentLaneContinualInputs.Add(4);
+            if (dPadLane1Input < 0) AddIfNotExists(CurrentLaneContinualInputs, 1);
+            if (dPadLane2Input > 0) AddIfNotExists(CurrentLaneContinualInputs, 2);
+            if (UnityEngine.Input.GetButton("Lane 3")) AddIfNotExists(CurrentLaneContinualInputs, 3);
+            if (UnityEngine.Input.GetButton("Lane 4")) AddIfNotExists(CurrentLaneContinualInputs, 4);
 
+            // Alternate Button
+            if (CurrentDPadInputs.Lane3.JustClicked && dPadLane3AlternateInput < 0) AddIfNotExists(CurrentLaneDownInputs, 3);
+            if (CurrentDPadInputs.Lane4.JustClicked && dPadLane4AlternateInput > 0) AddIfNotExists(CurrentLaneDownInputs, 4);
+            if (UnityEngine.Input.GetButtonDown("Lane 1 Alternate")) AddIfNotExists(CurrentLaneDownInputs, 1);
+            if (UnityEngine.Input.GetButtonDown("Lane 2 Alternate")) AddIfNotExists(CurrentLaneDownInputs, 2);
+
+            if (dPadLane3AlternateInput < 0) AddIfNotExists(CurrentLaneContinualInputs, 3);
+            if (dPadLane4AlternateInput > 0) AddIfNotExists(CurrentLaneContinualInputs, 4);
+            if (UnityEngine.Input.GetButton("Lane 1 Alternate")) AddIfNotExists(CurrentLaneContinualInputs, 1);
+            if (UnityEngine.Input.GetButton("Lane 2 Alternate")) AddIfNotExists(CurrentLaneContinualInputs, 2);
+
+            // Arctap
             CurrentArctapInputs.Add(UnityEngine.Input.GetButtonDown("Left Arctap"));
             CurrentArctapInputs.Add(UnityEngine.Input.GetButtonDown("Right Arctap"));
 
-            for (int i = 0; i < CurrentLaneContinualInputs.Count; i++)
+            foreach (var laneInput in CurrentLaneContinualInputs)
             {
-                Services.InputFeedback.LaneFeedback(CurrentLaneContinualInputs[i]);
+                LaneFeedback(FromLaneIndex(laneInput), Services.Audio.AudioTiming);
             }
 
-            prevLane1 = lane1;
-            prevLane2 = lane2;
+            // DebugKeyPressed();
         }
 
         public enum JoyconJudgementSide
@@ -118,7 +228,9 @@ namespace ArcCreate.Gameplay.Judgement.Input
         {
             for (int inpIndex = 0; inpIndex < CurrentLaneDownInputs.Count; inpIndex++)
             {
-                int lane = CurrentLaneDownInputs[inpIndex];
+                int laneIndex = CurrentLaneDownInputs[inpIndex];
+                TapSide side = FromLaneIndex(laneIndex);
+                if (side == TapSide.Undefined) continue;
 
                 int minTimingDifference = int.MaxValue;
 
@@ -135,7 +247,7 @@ namespace ArcCreate.Gameplay.Judgement.Input
                         continue;
                     }
 
-                    if (req.Lane == lane && timingDifference < minTimingDifference)
+                    if (FromLaneIndex(req.Lane) == side && timingDifference < minTimingDifference)
                     {
                         minTimingDifference = timingDifference;
                         applicableLaneRequestExists = true;
@@ -205,7 +317,9 @@ namespace ArcCreate.Gameplay.Judgement.Input
         {
             for (int inpIndex = 0; inpIndex < CurrentLaneContinualInputs.Count; inpIndex++)
             {
-                int lane = CurrentLaneContinualInputs[inpIndex];
+                int laneIndex = CurrentLaneContinualInputs[inpIndex];
+                TapSide side = FromLaneIndex(laneIndex);
+                if (side == TapSide.Undefined) continue;
 
                 for (int i = requests.Count - 1; i >= 0; i--)
                 {
@@ -216,7 +330,7 @@ namespace ArcCreate.Gameplay.Judgement.Input
                         continue;
                     }
 
-                    if (req.Lane == lane)
+                    if (FromLaneIndex(req.Lane) == side)
                     {
                         req.Receiver.ProcessLaneHoldJudgement(currentTiming >= req.ExpireAtTiming, req.IsJudgement, req.Properties);
                         requests.RemoveAt(i);
@@ -246,17 +360,15 @@ namespace ArcCreate.Gameplay.Judgement.Input
 
         private static double GetAngleDeviation(double input, double judge)
         {
-            return Math.Min(
-                Math.Abs(input - judge),
-                Math.Abs(judge - input)
-            );
+            var d = Math.Abs(judge - input);
+            return Math.Min(d, 360 - d);
         }
 
         private static double CalculateEulerFromJoystickInput(JoyconArcInputState.JoyconSingleArcInputState input)
         {
             float h = input.Horizontal;
             float v = input.Vertical;
-            if (Math.Sqrt(Math.Pow(h, 2) + Math.Pow(v, 2)) < 0.125) return -1;
+            if (Math.Sqrt(Math.Pow(h, 2) + Math.Pow(v, 2)) < joystickSensibility) return -1;
             var radians = Math.PI / 2 - Math.Atan(v / h);
             if (h < 0) radians += Math.PI;
             return 180 / Math.PI * radians;
@@ -274,28 +386,27 @@ namespace ArcCreate.Gameplay.Judgement.Input
                     continue;
                 }
 
-                var matrix = req.Arc.ArcCapMatrix;
-                var eulerAngles = MatrixToEuler(matrix);
+                bool accepted;
 
-                double currentAngle;
-
-                switch (req.Arc.Color)
+                if (req.Arc.XStart == req.Arc.XEnd && req.Arc.YStart == req.Arc.YEnd)
                 {
-                    case 0:
-                        currentAngle = CalculateEulerFromJoystickInput(input.Left);
-                        break;
-
-                    case 1:
-                        currentAngle = CalculateEulerFromJoystickInput(input.Right);
-                        break;
-
-                    default:
-                        currentAngle = -1;
-                        break;
+                    accepted = true;
                 }
+                else
+                {
+                    var matrix = req.Arc.ArcCapMatrix;
+                    var eulerAngles = MatrixToEuler(matrix);
 
-                double deviation = GetAngleDeviation(currentAngle, eulerAngles);
-                bool accepted = currentAngle >= 0 && deviation < arcJudgementThreshold;
+                    double currentAngle = req.Arc.Color switch
+                    {
+                        0 => CalculateEulerFromJoystickInput(input.Left),
+                        1 => CalculateEulerFromJoystickInput(input.Right),
+                        _ => -1.0
+                    };
+
+                    double deviation = GetAngleDeviation(currentAngle, eulerAngles);
+                    accepted = currentAngle <= 0 && deviation < arcJudgementThreshold;
+                }
 
                 if (accepted)
                 {
