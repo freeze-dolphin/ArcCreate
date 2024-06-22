@@ -1,23 +1,14 @@
 using System;
 using System.Collections.Generic;
+using ArcCreate.Gameplay.Skin;
 using ArcCreate.Utility;
 using UnityEngine;
+using NoteSide = ArcCreate.Gameplay.Skin.JoyconNoteSkinOption.JoyconJudgementSide;
 
 namespace ArcCreate.Gameplay.Judgement.Input
 {
     public class ControllerInputHandler : IInputHandler
     {
-        private static void DebugKeyPressed()
-        {
-            foreach (KeyCode keyCode in Enum.GetValues(typeof(KeyCode)))
-            {
-                if (UnityEngine.Input.GetKeyDown(keyCode))
-                {
-                    Debug.Log("Pressed: " + keyCode);
-                }
-            }
-        }
-
         public record JoyconArcInputState
         {
             public record JoyconSingleArcInputState
@@ -95,48 +86,42 @@ namespace ArcCreate.Gameplay.Judgement.Input
             }
         }
 
-        public enum TapSide
-        {
-            Left,
-            Right,
-            Undefined
-        }
-
-        public static TapSide FromLaneIndex(int lane)
+        public static NoteSide FromLaneIndex(int lane)
         {
             return lane switch
             {
-                >= 0 and <= 2 => TapSide.Left,
-                <= 5 => TapSide.Right,
-                _ => TapSide.Undefined
+                >= 0 and <= 2 => NoteSide.Left,
+                <= 5 => NoteSide.Right,
+                _ => NoteSide.Undefined
             };
         }
 
-        public static void LaneFeedback(TapSide side, int timing)
+        public static void LaneFeedback(NoteSide side)
         {
-            var enwidened =
-                Services.Scenecontrol.Scene.Track.ExtraL.ColorA.ValueAt(timing) >= 200 &&
-                Services.Scenecontrol.Scene.Track.ExtraR.ColorA.ValueAt(timing) >= 200;
             switch (side)
             {
-                case TapSide.Left:
-                    Services.InputFeedback.LaneFeedback(1);
-                    Services.InputFeedback.LaneFeedback(2);
-                    if (enwidened) Services.InputFeedback.LaneFeedback(0);
+                case NoteSide.Left:
+                    for (int i = (int)Values.LaneFrom; i <= 2; i++)
+                    {
+                        Services.InputFeedback.LaneFeedback(i);
+                    }
+
                     break;
-                case TapSide.Right:
-                    Services.InputFeedback.LaneFeedback(3);
-                    Services.InputFeedback.LaneFeedback(4);
-                    if (enwidened) Services.InputFeedback.LaneFeedback(5);
+                case NoteSide.Right:
+                    for (int i = 3; i <= Values.LaneTo; i++)
+                    {
+                        Services.InputFeedback.LaneFeedback(i);
+                    }
+
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(side), side, null);
             }
         }
 
-        protected List<int> CurrentLaneDownInputs = new(4);
-        protected List<int> CurrentLaneContinualInputs = new(4);
-        protected List<bool> CurrentArctapInputs = new(2);
+
+        protected List<NoteSide> CurrentNoteDownInputs = new(4);
+        protected List<NoteSide> CurrentNoteContinualInputs = new(4);
         protected JoyconArcInputState CurrentArcInputs = new(0, 0, 0, 0);
         protected DPadInputState CurrentDPadInputs = new();
 
@@ -145,9 +130,8 @@ namespace ArcCreate.Gameplay.Judgement.Input
 
         public void PollInput()
         {
-            CurrentLaneDownInputs.Clear();
-            CurrentLaneContinualInputs.Clear();
-            CurrentArctapInputs.Clear();
+            CurrentNoteDownInputs.Clear();
+            CurrentNoteContinualInputs.Clear();
             CurrentArcInputs.Reset();
 
             // Arc Input from Joysticks
@@ -167,58 +151,40 @@ namespace ArcCreate.Gameplay.Judgement.Input
             CurrentDPadInputs.Update(CurrentDPadInputs.Lane3, dPadLane3AlternateInput);
             CurrentDPadInputs.Update(CurrentDPadInputs.Lane4, dPadLane4AlternateInput);
 
-            // Normal Button
-            if (CurrentDPadInputs.Lane1.JustClicked && dPadLane1Input < 0) AddIfNotExists(CurrentLaneDownInputs, 1);
-            if (CurrentDPadInputs.Lane2.JustClicked && dPadLane2Input > 0) AddIfNotExists(CurrentLaneDownInputs, 2);
-            if (UnityEngine.Input.GetButtonDown("Lane 3")) AddIfNotExists(CurrentLaneDownInputs, 3);
-            if (UnityEngine.Input.GetButtonDown("Lane 4")) AddIfNotExists(CurrentLaneDownInputs, 4);
+            // Arctap
+            if (UnityEngine.Input.GetButtonDown("Left Arctap")) CurrentNoteDownInputs.Add(NoteSide.Left);
+            if (UnityEngine.Input.GetButtonDown("Right Arctap")) CurrentNoteDownInputs.Add(NoteSide.Right);
+            if (UnityEngine.Input.GetButton("Left Arctap")) AddIfNotExists(CurrentNoteContinualInputs, NoteSide.Left);
+            if (UnityEngine.Input.GetButton("Right Arctap")) AddIfNotExists(CurrentNoteContinualInputs, NoteSide.Right);
 
-            if (dPadLane1Input < 0) AddIfNotExists(CurrentLaneContinualInputs, 1);
-            if (dPadLane2Input > 0) AddIfNotExists(CurrentLaneContinualInputs, 2);
-            if (UnityEngine.Input.GetButton("Lane 3")) AddIfNotExists(CurrentLaneContinualInputs, 3);
-            if (UnityEngine.Input.GetButton("Lane 4")) AddIfNotExists(CurrentLaneContinualInputs, 4);
+            // Normal Button
+            if (CurrentDPadInputs.Lane1.JustClicked && dPadLane1Input < 0) AddIfNotExists(CurrentNoteDownInputs, NoteSide.Left);
+            if (CurrentDPadInputs.Lane2.JustClicked && dPadLane2Input > 0) AddIfNotExists(CurrentNoteDownInputs, NoteSide.Left);
+            if (UnityEngine.Input.GetButtonDown("Lane 3")) AddIfNotExists(CurrentNoteDownInputs, NoteSide.Right);
+            if (UnityEngine.Input.GetButtonDown("Lane 4")) AddIfNotExists(CurrentNoteDownInputs, NoteSide.Right);
+
+            if (dPadLane1Input < 0) AddIfNotExists(CurrentNoteContinualInputs, NoteSide.Left);
+            if (dPadLane2Input > 0) AddIfNotExists(CurrentNoteContinualInputs, NoteSide.Left);
+            if (UnityEngine.Input.GetButton("Lane 3")) AddIfNotExists(CurrentNoteContinualInputs, NoteSide.Right);
+            if (UnityEngine.Input.GetButton("Lane 4")) AddIfNotExists(CurrentNoteContinualInputs, NoteSide.Right);
 
             // Alternate Button
-            if (CurrentDPadInputs.Lane3.JustClicked && dPadLane3AlternateInput < 0) AddIfNotExists(CurrentLaneDownInputs, 3);
-            if (CurrentDPadInputs.Lane4.JustClicked && dPadLane4AlternateInput > 0) AddIfNotExists(CurrentLaneDownInputs, 4);
-            if (UnityEngine.Input.GetButtonDown("Lane 1 Alternate")) AddIfNotExists(CurrentLaneDownInputs, 1);
-            if (UnityEngine.Input.GetButtonDown("Lane 2 Alternate")) AddIfNotExists(CurrentLaneDownInputs, 2);
+            if (CurrentDPadInputs.Lane3.JustClicked && dPadLane3AlternateInput < 0) AddIfNotExists(CurrentNoteDownInputs, NoteSide.Right);
+            if (CurrentDPadInputs.Lane4.JustClicked && dPadLane4AlternateInput > 0) AddIfNotExists(CurrentNoteDownInputs, NoteSide.Right);
+            if (UnityEngine.Input.GetButtonDown("Lane 1 Alternate")) AddIfNotExists(CurrentNoteDownInputs, NoteSide.Left);
+            if (UnityEngine.Input.GetButtonDown("Lane 2 Alternate")) AddIfNotExists(CurrentNoteDownInputs, NoteSide.Left);
 
-            if (dPadLane3AlternateInput < 0) AddIfNotExists(CurrentLaneContinualInputs, 3);
-            if (dPadLane4AlternateInput > 0) AddIfNotExists(CurrentLaneContinualInputs, 4);
-            if (UnityEngine.Input.GetButton("Lane 1 Alternate")) AddIfNotExists(CurrentLaneContinualInputs, 1);
-            if (UnityEngine.Input.GetButton("Lane 2 Alternate")) AddIfNotExists(CurrentLaneContinualInputs, 2);
+            if (dPadLane3AlternateInput < 0) AddIfNotExists(CurrentNoteContinualInputs, NoteSide.Right);
+            if (dPadLane4AlternateInput > 0) AddIfNotExists(CurrentNoteContinualInputs, NoteSide.Right);
+            if (UnityEngine.Input.GetButton("Lane 1 Alternate")) AddIfNotExists(CurrentNoteContinualInputs, NoteSide.Left);
+            if (UnityEngine.Input.GetButton("Lane 2 Alternate")) AddIfNotExists(CurrentNoteContinualInputs, NoteSide.Left);
 
-            // Arctap
-            CurrentArctapInputs.Add(UnityEngine.Input.GetButtonDown("Left Arctap"));
-            CurrentArctapInputs.Add(UnityEngine.Input.GetButtonDown("Right Arctap"));
-
-            foreach (var laneInput in CurrentLaneContinualInputs)
+            foreach (var laneInput in CurrentNoteContinualInputs)
             {
-                LaneFeedback(FromLaneIndex(laneInput), Services.Audio.AudioTiming);
+                LaneFeedback(laneInput);
             }
 
             // DebugKeyPressed();
-        }
-
-        public enum JoyconJudgementSide
-        {
-            Left,
-            Right,
-            Middle
-        }
-
-        /// <summary>
-        /// Modified from [ArcCreate.Gameplay.Skin.JoyconNoteSkinOption.GetArcTapSkin]
-        /// </summary>
-        public static JoyconJudgementSide GetArcTapJudgementSide(float worldX)
-        {
-            if (Mathf.Abs(worldX) <= Values.ArcTapMiddleWorldXRange)
-            {
-                return JoyconJudgementSide.Middle;
-            }
-
-            return worldX > 0f ? JoyconJudgementSide.Left : JoyconJudgementSide.Right;
         }
 
         public void HandleTapRequests(
@@ -226,11 +192,10 @@ namespace ArcCreate.Gameplay.Judgement.Input
             UnorderedList<LaneTapJudgementRequest> laneTapRequests,
             UnorderedList<ArcTapJudgementRequest> arcTapRequests)
         {
-            for (int inpIndex = 0; inpIndex < CurrentLaneDownInputs.Count; inpIndex++)
+            for (int inpIndex = 0; inpIndex < CurrentNoteDownInputs.Count; inpIndex++)
             {
-                int laneIndex = CurrentLaneDownInputs[inpIndex];
-                TapSide side = FromLaneIndex(laneIndex);
-                if (side == TapSide.Undefined) continue;
+                NoteSide side = CurrentNoteDownInputs[inpIndex];
+                if (side == NoteSide.Undefined) continue;
 
                 int minTimingDifference = int.MaxValue;
 
@@ -256,31 +221,6 @@ namespace ArcCreate.Gameplay.Judgement.Input
                     }
                 }
 
-                if (applicableLaneRequestExists)
-                {
-                    applicableLaneRequest.Receiver.ProcessLaneTapJudgement(currentTiming - applicableLaneRequest.AutoAtTiming,
-                        applicableLaneRequest.Properties);
-                    laneTapRequests.RemoveAt(applicableLaneRequestIndex);
-                }
-            }
-
-            for (int inpIndex = 0; inpIndex < CurrentArctapInputs.Count; inpIndex++)
-            {
-                bool input = CurrentArctapInputs[inpIndex];
-                if (!input) continue;
-
-                JoyconJudgementSide side;
-                if (inpIndex == 0)
-                {
-                    side = JoyconJudgementSide.Left;
-                }
-                else
-                {
-                    side = JoyconJudgementSide.Right;
-                }
-
-                int minTimingDifference = int.MaxValue;
-
                 bool applicableArcTapRequestExists = false;
                 ArcTapJudgementRequest applicableArcTapRequest = default;
                 int applicableArcTapRequestIndex = 0;
@@ -294,8 +234,9 @@ namespace ArcCreate.Gameplay.Judgement.Input
                         continue;
                     }
 
-                    var targetSide = GetArcTapJudgementSide(req.X);
-                    if ((targetSide == side || targetSide == JoyconJudgementSide.Middle) && timingDifference < minTimingDifference)
+                    var targetSide = JoyconNoteSkinOption.GetArcTapJudgementSide(req.X);
+                    if ((targetSide == side || targetSide == JoyconNoteSkinOption.JoyconJudgementSide.Middle) &&
+                        timingDifference < minTimingDifference)
                     {
                         minTimingDifference = timingDifference;
                         applicableArcTapRequestExists = true;
@@ -304,7 +245,14 @@ namespace ArcCreate.Gameplay.Judgement.Input
                     }
                 }
 
-                if (applicableArcTapRequestExists)
+
+                if (applicableLaneRequestExists)
+                {
+                    applicableLaneRequest.Receiver.ProcessLaneTapJudgement(currentTiming - applicableLaneRequest.AutoAtTiming,
+                        applicableLaneRequest.Properties);
+                    laneTapRequests.RemoveAt(applicableLaneRequestIndex);
+                }
+                else if (applicableArcTapRequestExists)
                 {
                     applicableArcTapRequest.Receiver.ProcessArcTapJudgement(currentTiming - applicableArcTapRequest.AutoAtTiming,
                         applicableArcTapRequest.Properties);
@@ -315,11 +263,10 @@ namespace ArcCreate.Gameplay.Judgement.Input
 
         public void HandleLaneHoldRequests(int currentTiming, UnorderedList<LaneHoldJudgementRequest> requests)
         {
-            for (int inpIndex = 0; inpIndex < CurrentLaneContinualInputs.Count; inpIndex++)
+            for (int inpIndex = 0; inpIndex < CurrentNoteContinualInputs.Count; inpIndex++)
             {
-                int laneIndex = CurrentLaneContinualInputs[inpIndex];
-                TapSide side = FromLaneIndex(laneIndex);
-                if (side == TapSide.Undefined) continue;
+                NoteSide side = CurrentNoteContinualInputs[inpIndex];
+                if (side == NoteSide.Undefined) continue;
 
                 for (int i = requests.Count - 1; i >= 0; i--)
                 {
@@ -388,6 +335,8 @@ namespace ArcCreate.Gameplay.Judgement.Input
 
                 bool accepted;
 
+                // TODO shaky arc fix
+
                 if (req.Arc.XStart == req.Arc.XEnd && req.Arc.YStart == req.Arc.YEnd)
                 {
                     accepted = true;
@@ -405,7 +354,7 @@ namespace ArcCreate.Gameplay.Judgement.Input
                     };
 
                     double deviation = GetAngleDeviation(currentAngle, eulerAngles);
-                    accepted = currentAngle <= 0 && deviation < arcJudgementThreshold;
+                    accepted = currentAngle >= 0 && deviation < arcJudgementThreshold;
                 }
 
                 if (accepted)
