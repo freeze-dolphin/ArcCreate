@@ -78,6 +78,11 @@ namespace ArcCreate.Gameplay.Judgement
             autoHandler.ResetJudge();
         }
 
+        public IInputHandler InputHandler()
+        {
+            return inputHandler;
+        }
+
         public void ProcessInput(int currentTiming)
         {
             if (!Services.Audio.IsPlayingAndNotStationary)
@@ -156,12 +161,12 @@ namespace ArcCreate.Gameplay.Judgement
 
             float laneScreenHitboxBaseX =
                 (gameplayCamera.WorldToScreenPoint(Vector3.zero).x
-               - gameplayCamera.WorldToScreenPoint(new Vector3(Values.LaneWidth, 0, 0)).x)
-               / 2;
+                 - gameplayCamera.WorldToScreenPoint(new Vector3(Values.LaneWidth, 0, 0)).x)
+                / 2;
 
             float laneScreenHitboxBaseY =
                 gameplayCamera.WorldToScreenPoint(new Vector3(0, Values.ArcY1 / 4f, 0)).y
-               - gameplayCamera.WorldToScreenPoint(Vector3.zero).y;
+                - gameplayCamera.WorldToScreenPoint(Vector3.zero).y;
 
             Values.LaneScreenHitboxBase = new Vector2(laneScreenHitboxBaseX, laneScreenHitboxBaseY);
             Values.ScreenSizeBase = new Vector2(gameplayCamera.pixelWidth, gameplayCamera.pixelHeight);

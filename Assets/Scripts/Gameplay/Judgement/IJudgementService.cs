@@ -1,3 +1,5 @@
+using ArcCreate.Gameplay.Judgement.Input;
+
 namespace ArcCreate.Gameplay.Judgement
 {
     /// <summary>
@@ -55,6 +57,11 @@ namespace ArcCreate.Gameplay.Judgement
         /// Reset judgement state.
         /// </summary>
         void ResetJudge();
+
+        /// <summary>
+        /// Get the current input handler.
+        /// </summary>
+        IInputHandler InputHandler();
 
         void RefreshInputHandler();
     }

@@ -1,6 +1,7 @@
+using System;
 using System.Collections.Generic;
 using ArcCreate.Gameplay.Judgement;
-using ArcCreate.Gameplay.Render;
+using ArcCreate.Gameplay.Judgement.Input;
 using ArcCreate.Gameplay.Utility;
 using UnityEngine;
 
@@ -11,7 +12,7 @@ namespace ArcCreate.Gameplay.Data
     /// </summary>
     public partial class Arc : LongNote, ILongNote, IArcJudgementReceiver
     {
-        private static bool isControllerMode = false;
+        private InputMode mode;
 
         private bool highlight = false;
         private bool hasBeenHitOnce = false;
@@ -46,6 +47,18 @@ namespace ArcCreate.Gameplay.Data
 
         public Arc PreviousArc { get; set; }
 
+        private bool IsControllerMode()
+        {
+            switch (mode)
+            {
+                case InputMode.AutoController:
+                case InputMode.Controller:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         public float SegmentLength
             => ArcFormula.CalculateArcSegmentLength(EndTiming - Timing, TimingGroupInstance.GroupProperties.ArcResolution);
 
@@ -53,7 +66,7 @@ namespace ArcCreate.Gameplay.Data
 
         public float ArcCapSize => IsTrace ? Values.TraceCapSize : Values.ArcCapSize;
 
-        public Matrix4x4 ArcCapMatrix;
+        public Quaternion ArcCapQuaternion;
 
         public bool IsFirstArcOfGroup => PreviousArc == null;
 
@@ -117,7 +130,7 @@ namespace ArcCreate.Gameplay.Data
         public void ReloadSkin()
         {
             InputMode inputMode = (InputMode)Settings.InputMode.Value;
-            isControllerMode = inputMode == InputMode.AutoController || inputMode == InputMode.Controller;
+            mode = inputMode;
             (arcCap, heightIndicatorColor) = Services.Skin.GetArcSkin(this);
         }
 
@@ -194,8 +207,6 @@ namespace ArcCreate.Gameplay.Data
                 z,
                 groupProperties.NoClip);
 
-            ArcCapMatrix = arcCapMatrix;
-
             for (int i = 0; i < segments.Count; i++)
             {
                 ArcSegmentData segment = segments[i];
@@ -203,9 +214,9 @@ namespace ArcCreate.Gameplay.Data
                 float zPos = segment.CalculateZPos(currentFloorPosition);
                 float endZPos = segment.CalculateEndZPos(currentFloorPosition);
                 if (from > 1
-                 || (zPos < -Values.TrackLengthForward && endZPos < -Values.TrackLengthForward)
-                 || (zPos > Values.TrackLengthBackward && endZPos > Values.TrackLengthBackward)
-                 || (Timing != EndTiming && zPos == endZPos))
+                    || (zPos < -Values.TrackLengthForward && endZPos < -Values.TrackLengthForward)
+                    || (zPos > Values.TrackLengthBackward && endZPos > Values.TrackLengthBackward)
+                    || (Timing != EndTiming && zPos == endZPos))
                 {
                     continue;
                 }
@@ -215,9 +226,9 @@ namespace ArcCreate.Gameplay.Data
                 float depth = Services.Camera.CalculateDepthSquared(midpoint);
 
                 var (bodyMatrix, shadowMatrix, cornerOffset) =
-                        (EndTiming > Timing || IsTrace) ?
-                        segment.GetMatrices(currentFloorPosition, groupProperties.FallDirection, z, pos.y) :
-                        segment.GetMatricesSlam(
+                    (EndTiming > Timing || IsTrace)
+                        ? segment.GetMatrices(currentFloorPosition, groupProperties.FallDirection, z, pos.y)
+                        : segment.GetMatricesSlam(
                             currentFloorPosition,
                             groupProperties.FallDirection,
                             z,
@@ -236,7 +247,8 @@ namespace ArcCreate.Gameplay.Data
                 }
                 else
                 {
-                    Services.Render.DrawArcSegment(Color, highlight, matrix * bodyMatrix, color, IsSelected, redArcValue, basePos.y + segment.EndPosition.y, depth);
+                    Services.Render.DrawArcSegment(Color, highlight, matrix * bodyMatrix, color, IsSelected, redArcValue,
+                        basePos.y + segment.EndPosition.y, depth);
                     if (!groupProperties.NoShadow)
                     {
                         Services.Render.DrawArcShadow(matrix * shadowMatrix, color, cornerOffset);
@@ -264,7 +276,7 @@ namespace ArcCreate.Gameplay.Data
 
             if (!groupProperties.NoArcCap && shouldDrawArcCap)
             {
-                Services.Render.DrawArcCap(arcCap, matrix * arcCapMatrix, arcCapColor * groupProperties.Color, isControllerMode);
+                Services.Render.DrawArcCap(arcCap, matrix * arcCapMatrix, arcCapColor * groupProperties.Color, IsControllerMode());
             }
 
             if (currentTiming <= longParticleUntil && currentTiming >= Timing && currentTiming <= EndTiming)
@@ -364,6 +376,20 @@ namespace ArcCreate.Gameplay.Data
             return WorldXAt(timing);
         }
 
+        public ArcSegmentData? SegmentAt(int timing)
+        {
+            for (int i = 0; i < segments.Count; i++)
+            {
+                var seg = segments[i];
+                if (seg.Timing <= timing && timing <= seg.EndTiming)
+                {
+                    return seg;
+                }
+            }
+
+            return null;
+        }
+
         private void RebuildSegments()
         {
             if (Values.EnableArcRebuildSegment || segments.Count == 0)
@@ -393,9 +419,9 @@ namespace ArcCreate.Gameplay.Data
 
                     lastEndFloorPosition = TimingGroupInstance.GetFloorPosition(cappedEndTiming);
                     segment.EndFloorPosition = lastEndFloorPosition;
-                    lastPosition = cappedEndTiming == EndTiming ?
-                        new Vector2(ArcFormula.ArcXToWorld(XEnd), ArcFormula.ArcYToWorld(YEnd)) :
-                        new Vector2(WorldXAt(cappedEndTiming), WorldYAt(cappedEndTiming));
+                    lastPosition = cappedEndTiming == EndTiming
+                        ? new Vector2(ArcFormula.ArcXToWorld(XEnd), ArcFormula.ArcYToWorld(YEnd))
+                        : new Vector2(WorldXAt(cappedEndTiming), WorldYAt(cappedEndTiming));
                     segment.EndPosition = lastPosition - basePosition;
                     segment.From = 0;
 
@@ -430,6 +456,13 @@ namespace ArcCreate.Gameplay.Data
                     segments[i] = segment;
                 }
             }
+        }
+
+        public static Quaternion CalculateArcCapRotation(ArcSegmentData segment)
+        {
+            Vector3 displacement = segment.EndPosition - segment.StartPosition;
+            displacement.z = 0;
+            return Quaternion.FromToRotation(Vector3.up, displacement);
         }
 
         private (bool shouldDrawArcCap, Matrix4x4 arcCapMatrix, Vector4 arcCapColor) UpdateSegmentsAndArcCap(
@@ -470,28 +503,61 @@ namespace ArcCreate.Gameplay.Data
 
                     Vector3 capPos = segment.StartPosition + (p * (segment.EndPosition - segment.StartPosition)) - (fallDirection * z);
                     Quaternion capRot = Quaternion.identity;
-                    if (isControllerMode)
+                    if (IsControllerMode())
                     {
-                        Vector3 displacement = segment.EndPosition - segment.StartPosition;
-                        if (IsTrace || (Mathf.Approximately(displacement.x, 0) && Mathf.Approximately(displacement.y, 0)))
+                        if (mode != InputMode.AutoController)
                         {
-                            return (false, default, default);
-                        }
+                            Vector3 displacement = segment.EndPosition - segment.StartPosition;
+                            if (IsTrace || (Mathf.Approximately(displacement.x, 0) && Mathf.Approximately(displacement.y, 0)))
+                            {
+                                return (false, default, default);
+                            }
 
-                        displacement.z = 0;
-                        capRot = Quaternion.FromToRotation(Vector3.up, displacement);
+                            if (Services.Judgement.InputHandler() is not ControllerInputHandler handler)
+                            {
+                                throw new Exception("Unable to cast InputHandler to ControllerInputHandler");
+                            }
+
+                            var inputState = handler.CurrentArcInputs.GetInputStateForColor(Color);
+                            if (inputState is null)
+                            {
+                                // do not draw arcCaps for arcs with color other than 0 and 1
+                                return (false, default, default);
+                            }
+
+                            var quaternionFromInput = inputState.CalculateQuaternionFromInput();
+
+                            // do not draw arcCap if there is no input from joystick
+                            if (quaternionFromInput == null)
+                                return (false, default, default);
+
+                            capRot = quaternionFromInput.Value;
+                        }
+                        else
+                        {
+                            Vector3 displacement = segment.EndPosition - segment.StartPosition;
+                            if (IsTrace || (Mathf.Approximately(displacement.x, 0) && Mathf.Approximately(displacement.y, 0)))
+                            {
+                                return (false, default, default);
+                            }
+
+                            displacement.z = 0;
+                            capRot = Quaternion.FromToRotation(Vector3.up, displacement);
+                        }
                     }
 
                     Vector3 capScale = new Vector3(ArcCapSize, ArcCapSize, 1);
 
                     Vector4 color = new Vector4(1, 1, 1, IsTrace ? Values.TraceCapAlpha : Values.ArcCapAlpha);
+
+                    ArcCapQuaternion = capRot;
                     return (true, Matrix4x4.TRS(capPos, capRot, capScale), color);
                 }
             }
 
             if (currentTiming <= Timing)
             {
-                if (IsFirstArcOfGroup && !IsTrace && !isControllerMode)
+                if (IsFirstArcOfGroup && !IsTrace && !IsControllerMode())
                 {
                     float approach = Mathf.Clamp(1 - (Mathf.Abs(z) / Values.TrackLengthForward), 0, 1);
                     float size = Values.ArcCapSize + (Values.ArcCapSizeAdditionMax * (1 - approach));
@@ -500,6 +566,7 @@ namespace ArcCreate.Gameplay.Data
                     Vector3 scale = new Vector3(size, size, 1);
                     Vector4 color = new Color(1, 1, 1, IsTrace ? 0 : approach);
 
+                    ArcCapQuaternion = Quaternion.identity;
                     return (true, Matrix4x4.TRS(capPos, Quaternion.identity, scale), color);
                 }
                 else

@@ -37,18 +37,31 @@ namespace ArcCreate.Gameplay.Skin
             Undefined
         }
         
-        public static JoyconJudgementSide GetArcTapJudgementSide(float worldX)
+        public static JoyconJudgementSide GetSideFromLaneIndex(int lane)
         {
-            if (Mathf.Abs(worldX) <= Values.ArcTapMiddleWorldXRange)
+            return lane switch
+            {
+                >= 0 and <= 2 => JoyconJudgementSide.Left,
+                <= 5 => JoyconJudgementSide.Right,
+                _ => JoyconJudgementSide.Undefined
+            };
+        }
+
+        public static JoyconJudgementSide GetArcTapJudgementSide(float worldX, float width)
+        {
+            var arcX = ArcFormula.WorldXToArc(worldX);
+            var halfWidth = width / 4;
+            if (0.5 - halfWidth < arcX && arcX < 0.5 + halfWidth)
+            // if (Mathf.Abs(worldX) <= Values.ArcTapMiddleWorldXRange)
             {
                 return JoyconJudgementSide.Middle;
             }
 
             if (worldX > 0f) return JoyconJudgementSide.Left;
 
-            return  JoyconJudgementSide.Right;
+            return JoyconJudgementSide.Right;
         }
-        
+
         public override Texture GetArcTapSkin(ArcTap note)
         {
             if (note.Sfx != "none" && !string.IsNullOrEmpty(note.Sfx))
@@ -56,7 +69,7 @@ namespace ArcCreate.Gameplay.Skin
                 return ArcTapSfxTexture.Value;
             }
 
-            return GetArcTapJudgementSide(note.WorldX) switch
+            return GetArcTapJudgementSide(note.WorldX, note.Width) switch
             {
                 JoyconJudgementSide.Middle => ArcTapSkinMiddleTexture.Value,
                 JoyconJudgementSide.Left => ArcTapSkinLeftTexture.Value,
@@ -73,7 +86,7 @@ namespace ArcCreate.Gameplay.Skin
 
         public override Texture GetArcCapSprite(Arc arc)
         {
-            if (arc.Color < 0 || arc.Color > ArcCapSprites.Length)
+            if (arc.Color < 0 || arc.Color >= ArcCapSprites.Length)
             {
                 return ArcCapSprites[ArcCapSprites.Length - 1].Value;
             }
