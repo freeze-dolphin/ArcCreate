@@ -440,6 +440,7 @@ namespace ArcCreate.Gameplay.Data
 
                     segment.Timing = timing;
                     segment.EndTiming = cappedEndTiming;
+                    segment.TimingGroup = TimingGroup;
                     segment.FloorPosition = lastEndFloorPosition;
                     segment.StartPosition = lastPosition - basePosition;
 
