@@ -40,7 +40,7 @@ namespace ArcCreate.Gameplay.Render
         private readonly List<ArcDrawCall> queuedArcDrawCalls = new List<ArcDrawCall>();
         private readonly List<ArcDrawCall> queuedTraceDrawCalls = new List<ArcDrawCall>();
         private readonly IComparer<ArcDrawCall> arcDrawCallComparer = new ArcDrawCallComparer();
-        private InstancedRendererPool arcSegmentDrawer;
+        private readonly Dictionary<int, InstancedRendererPool> arcSegmentDrawers = new();
         private InstancedRendererPool arcHeadDrawer;
         private readonly Dictionary<Texture, InstancedRendererPool> arcCapDrawers = new Dictionary<Texture, InstancedRendererPool>();
         private InstancedRendererPool arcShadowDrawer;
@@ -48,6 +48,22 @@ namespace ArcCreate.Gameplay.Render
         private InstancedRendererPool traceHeadDrawer;
         private InstancedRendererPool traceShadowDrawer;
         private InstancedRendererPool heightIndicatorDrawer;
+        
+        private Material arcMaterialPrototype;
+        private readonly Dictionary<int, Material> arcMaterialCache = new();
+
+        private Material GetArcMaterialForColor(int colorId)
+        {
+            if (arcMaterialCache.TryGetValue(colorId, out var mat))
+            {
+                return mat;
+            }
+
+            var newMat = Instantiate(arcMaterialPrototype);
+            newMat.renderQueue += colorId;
+            arcMaterialCache[colorId] = newMat;
+            return newMat;
+        }
 
         // Arctap
         private readonly Dictionary<Texture, InstancedRendererPool> arctapDrawers = new Dictionary<Texture, InstancedRendererPool>();
@@ -109,6 +125,7 @@ namespace ArcCreate.Gameplay.Render
                 Matrix = matrix,
                 Color = color,
                 Properties = properties,
+                ColorId = colorId,
                 Depth = depth,
             });
         }
@@ -189,6 +206,8 @@ namespace ArcCreate.Gameplay.Render
         {
             arctapShadowDrawer.RegisterInstance(matrix, color);
         }
+        
+        private readonly HashSet<int> drawnColorIds = new();
 
         public void UpdateRenderers()
         {
@@ -233,15 +252,29 @@ namespace ArcCreate.Gameplay.Render
             }
 
             queuedArcDrawCalls.Sort(arcDrawCallComparer);
+            drawnColorIds.Clear();
             foreach (var call in queuedArcDrawCalls)
             {
-                arcSegmentDrawer.RegisterInstance(
-                    call.Matrix,
-                    call.Color,
-                    call.Properties);
+                if (arcSegmentDrawers.TryGetValue(call.ColorId, out var pool))
+                {
+                    pool.RegisterInstance(
+                        call.Matrix,
+                        call.Color,
+                        call.Properties);
+                }
+                else
+                {
+                    RegisterRendererPoolForColor(call.ColorId).RegisterInstance(call.Matrix, call.Color, call.Properties);
+                }
+
+                drawnColorIds.Add(call.ColorId);
             }
 
-            arcSegmentDrawer.Draw(notesCamera, layer);
+            foreach (int colorId in drawnColorIds)
+            {
+                arcSegmentDrawers[colorId].Draw(notesCamera, layer);
+            }
+
             queuedArcDrawCalls.Clear();
 
             foreach (var pair in arctapDrawers)
@@ -291,21 +324,33 @@ namespace ArcCreate.Gameplay.Render
             UpdateLoadedState();
         }
 
-        public void SetArcMaterial(Material material)
+        private InstancedRendererPool RegisterRendererPoolForColor(int colorId)
         {
-            arcSegmentDrawer?.Dispose();
-            arcHeadDrawer?.Dispose();
-
-            arcSegmentDrawer = new InstancedRendererPool(
-                material,
+            var pool = new InstancedRendererPool(
+                GetArcMaterialForColor(colorId),
                 ArcMeshGenerator.GetSegmentMesh(false),
                 true);
+            arcSegmentDrawers.Add(colorId, pool);
 
+            return pool;
+        }
+        
+        public void SetArcMaterial(Material material)
+        {
+            foreach (var (_, pool) in arcSegmentDrawers) pool?.Dispose();
+            arcSegmentDrawers.Clear();
+            arcHeadDrawer?.Dispose();
+
+            arcMaterialPrototype = material;
+            
             arcHeadDrawer = new InstancedRendererPool(
                 material,
                 ArcMeshGenerator.GetHeadMesh(false),
                 true);
 
+            RegisterRendererPoolForColor(0);
+            RegisterRendererPoolForColor(1);
+            
             UpdateLoadedState();
         }
 
@@ -336,7 +381,7 @@ namespace ArcCreate.Gameplay.Render
         private void UpdateLoadedState()
         {
             IsLoaded = connectionLineDrawer != null
-                    && arcSegmentDrawer != null
+                    && arcSegmentDrawers != null
                     && arcHeadDrawer != null
                     && traceSegmentDrawer != null
                     && traceHeadDrawer != null
@@ -367,6 +412,9 @@ namespace ArcCreate.Gameplay.Render
 
             generatedMaterials.Clear();
 
+            foreach (var (_, mat) in arcMaterialCache) Destroy(mat);
+            arcMaterialCache.Clear();
+            
             foreach (var pair in holdDrawers)
             {
                 pair.Value.Dispose();
@@ -391,7 +439,8 @@ namespace ArcCreate.Gameplay.Render
                 pair.Value.Dispose();
             }
 
-            arcSegmentDrawer.Dispose();
+            foreach (var (_, pool) in arcSegmentDrawers) pool?.Dispose();
+            arcSegmentDrawers.Clear();
 
             foreach (var pair in arctapDrawers)
             {
