@@ -49,7 +49,7 @@ namespace ArcCreate.Gameplay.Scenecontrol
 
         public Controller[] GetChildren()
         {
-            return GetComponentsInChildren<Controller>();
+            return GetComponentsInChildren<Controller>(true);
         }
 
         [MoonSharpHidden]
