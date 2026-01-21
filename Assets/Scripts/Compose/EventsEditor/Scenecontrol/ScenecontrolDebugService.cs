@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Reflection;
 using ArcCreate.Utility.Lua;
 using Cysharp.Threading.Tasks;
@@ -26,13 +27,15 @@ namespace ArcCreate.Compose.EventsEditor
 
         [SerializeField] private int debuggerServerListenPort = 42020;
 
-        private JObject defaultVsCodeLaunchSetting = null!;
+        private JObject defaultVsCodeLaunchSettingEntry = null!;
 
         private MoonSharpVsCodeDebugServer debugServer;
         private DebuggerIndicatorState currentState = DebuggerIndicatorState.Disconnected;
 
         public MoonSharpVsCodeDebugServer InitDebugServer()
         {
+            if (currentState == DebuggerIndicatorState.Disabled) return null;
+
             debugServer ??= new MoonSharpVsCodeDebugServer(debuggerServerListenPort).Start();
 
             UpdateDebuggerIndicatorState(DebuggerIndicatorState.Disconnected);
@@ -57,11 +60,14 @@ namespace ArcCreate.Compose.EventsEditor
         {
             Preparing,
             Connected,
-            Disconnected
+            Disconnected,
+            Disabled
         }
 
         private void UpdateDebuggerIndicatorState(DebuggerIndicatorState state)
         {
+            if (currentState == DebuggerIndicatorState.Disabled) return;
+
             Color targetColor;
 
             switch (state)
@@ -87,6 +93,14 @@ namespace ArcCreate.Compose.EventsEditor
                     targetColor = Color.white;
 
                     debuggerButton.interactable = true;
+                    autoRebuildToggle.interactable = true;
+                    break;
+                }
+                case DebuggerIndicatorState.Disabled:
+                {
+                    targetColor = new Color(0.8980392f, 0.2235294f, 0.2235294f);
+
+                    debuggerButton.interactable = false;
                     autoRebuildToggle.interactable = true;
                     break;
                 }
@@ -139,9 +153,11 @@ namespace ArcCreate.Compose.EventsEditor
             }
 
             filepath = Path.Combine(filepath, "launch.json");
-            if (File.Exists(filepath))
+
+
+            try
             {
-                try
+                if (File.Exists(filepath))
                 {
                     var json = JObject.Parse(File.ReadAllText(filepath));
 
@@ -158,43 +174,50 @@ namespace ArcCreate.Compose.EventsEditor
 
                     if (!hasMoonSharpConfig)
                     {
-                        configurations?.Add(defaultVsCodeLaunchSetting);
+                        configurations?.Add(defaultVsCodeLaunchSettingEntry);
 
                         File.WriteAllText(filepath, json.ToString());
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    Debug.LogError($"Failed to parse or update launch.json: {ex.Message}");
-                    return;
+                    File.WriteAllText(filepath, new JObject
+                    {
+                        ["version"] = "0.2.0",
+                        ["configurations"] = new JArray
+                        {
+                            defaultVsCodeLaunchSettingEntry
+                        }
+                    }.ToString());
                 }
             }
-            else
+            catch (Exception ex)
             {
-                var json = new JObject
-                {
-                    ["version"] = "0.2.0",
-                    ["configurations"] = new JArray
-                    {
-                        defaultVsCodeLaunchSetting
-                    }
-                };
-
-                File.WriteAllText(filepath, json.ToString());
+                Debug.LogError($"Failed to parse or update launch.json: {ex.Message}");
             }
         }
 
         private void Awake()
         {
-            defaultVsCodeLaunchSetting = new JObject
+            defaultVsCodeLaunchSettingEntry = new JObject
             {
                 ["name"] = "ArcCreate MoonSharp Attach",
                 ["type"] = "moonsharp-debug",
                 ["request"] = "attach",
                 ["debugServer"] = debuggerServerListenPort
             };
+            try
+            {
+                InitDebugServer();
+            }
+            catch (SocketException ex)
+            {
+                // catch SocketException, and disable debugger
+                Debug.LogWarning(
+                    "Debugger has been initialized on another ArcCreate instance, self-disabled for this");
 
-            InitDebugServer();
+                UpdateDebuggerIndicatorState(DebuggerIndicatorState.Disabled);
+            }
         }
     }
 }

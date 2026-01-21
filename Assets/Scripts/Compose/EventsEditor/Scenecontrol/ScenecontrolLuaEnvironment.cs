@@ -212,7 +212,7 @@ namespace ArcCreate.Compose.EventsEditor
                         debugServer);
                 }
 
-                if (isDebug)
+                if (isDebug && debugServer != null)
                 {
                     Debug.Log("Waiting for VsCode debugger to attach");
                     bool isAttached = await Services.ScenecontrolDebug.AwaitDebuggerAttach();
