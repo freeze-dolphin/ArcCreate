@@ -15,7 +15,7 @@ namespace ArcCreate.Compose.Macros
         public static float DropRate(int timingGroup = 0)
         {
             var tgDropRate = Services.Gameplay.Chart.GetTimingGroup(timingGroup).GroupProperties.DropRate;
-            return tgDropRate > 0 ? tgDropRate : Settings.DropRate.Value;
+            return tgDropRate != 0 ? tgDropRate : Settings.DropRate.Value;
         }
 
         public static float Offset => Gameplay.Values.ChartAudioOffset;
