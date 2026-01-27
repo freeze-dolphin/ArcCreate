@@ -126,6 +126,7 @@ namespace ArcCreate.Compose.Macros
                 IgnoreMirror = IgnoreMirror,
                 Autoplay = Autoplay,
                 ArcResolution = ArcResolution,
+                DropRate = DropRate,
                 AngleX = AngleX,
                 AngleY = AngleY,
                 JudgementSizeX = JudgementSizeX,

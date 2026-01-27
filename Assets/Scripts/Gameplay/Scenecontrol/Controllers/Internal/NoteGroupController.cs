@@ -363,7 +363,12 @@ namespace ArcCreate.Gameplay.Scenecontrol
         }
 
         [MoonSharpHidden]
-        public void UpdateNoteGroup(Quaternion rotation, Vector3 scale, Vector2 angle, Vector2 judgesize, Vector3 judgeoffset,
+        public void UpdateNoteGroup(
+            Quaternion rotation,
+            Vector3 scale,
+            Vector2 angle,
+            Vector2 judgesize,
+            Vector3 judgeoffset,
             float dropRate
         )
         {

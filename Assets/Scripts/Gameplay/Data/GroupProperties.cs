@@ -152,6 +152,8 @@ namespace ArcCreate.Gameplay.Data
                 NoClip = NoClip,
                 NoArcCap = NoArcCap,
                 NoConnection = NoConnection,
+                DropRate = DropRate,
+                DropRateSerialized = 0,
                 AngleX = AngleX,
                 AngleY = AngleY,
                 JudgementOffsetX = JudgementOffsetX,
@@ -160,7 +162,6 @@ namespace ArcCreate.Gameplay.Data
                 JudgementSizeX = JudgementSizeX,
                 JudgementSizeY = JudgementSizeY,
                 ArcResolution = ArcResolution,
-                DropRate = DropRate,
                 Autoplay = Autoplay,
                 IgnoreMirror = IgnoreMirror,
             };

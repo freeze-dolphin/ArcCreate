@@ -291,7 +291,7 @@ namespace ArcCreate.Gameplay.Scenecontrol
                 angle.x = tg.AngleX.ValueAt(timing);
                 angle.y = tg.AngleY.ValueAt(timing);
 
-                dropRate = dropRate > 0 ? dropRate : Settings.DropRate.Value;
+                dropRate = dropRate != 0 ? dropRate : Settings.DropRate.Value;
 
                 judgesize.x = tg.JudgeSizeX.ValueAt(timing);
                 judgesize.y = tg.JudgeSizeY.ValueAt(timing);
