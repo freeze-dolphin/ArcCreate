@@ -125,6 +125,8 @@ namespace ArcCreate.Gameplay.Scenecontrol
                     return new ValueToTextChannel();
 
                 // Contexts
+                case "channel.context.droprate":
+                    return new DropRateChannel();
                 case "channel.context.globaloffset":
                     return new GlobalOffsetChannel();
                 case "channel.context.currentscore":

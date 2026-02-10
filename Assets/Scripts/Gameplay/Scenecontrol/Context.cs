@@ -11,6 +11,8 @@ namespace ArcCreate.Gameplay.Scenecontrol
     {
         private ValueChannel laneFrom = new ConstantChannel(1);
         private ValueChannel laneTo = new ConstantChannel(4);
+        
+        public static DropRateChannel DropRate => new DropRateChannel();
 
         public static GlobalOffsetChannel GlobalOffset => new GlobalOffsetChannel();
 
