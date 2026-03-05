@@ -5,6 +5,7 @@ Parsing:
     InvalidConversionToInt: Could not convert "{0}" to integer.
     InvalidConversionToBool: Could not convert "{0}" to boolean.
     InvalidConversionToFloat: Could not convert "{0}" to float.
+    Antlr: Could not parse "{0}".
 
 Format:
   # Exception messages while parsing chart files
