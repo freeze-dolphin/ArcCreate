@@ -72,7 +72,7 @@ namespace ArcCreate.Compose.EventsEditor
         public override void SetReference(TimingGroup datum)
         {
             Reference = datum;
-            propertiesField.text = Reference.GroupProperties.ToRaw().ToStringWithoutName();
+            propertiesField.text = ArcCreateChartFileWriter.Instance.SerializeTimingGroup(Reference.GroupProperties.ToRaw(), false);
             nameField.gameObject.SetActive(true);
             fileText.gameObject.SetActive(true);
             propertiesField.gameObject.SetActive(true);
@@ -156,7 +156,7 @@ namespace ArcCreate.Compose.EventsEditor
             ICommand cmd = new EditTimingGroupProperitesCommand(I18n.S(
                 "Compose.Notify.GroupTable.EditGroup", new Dictionary<string, object>
                 {
-                        { "Number", Reference.GroupNumber },
+                    { "Number", Reference.GroupNumber },
                 }), Reference, newProps);
             Services.History.AddCommand(cmd);
 
@@ -167,7 +167,7 @@ namespace ArcCreate.Compose.EventsEditor
         {
             RawTimingGroup group = RawTimingGroup.Parse(value).UnwrapOrElse(e =>
             {
-                propertiesField.text = Reference.GroupProperties.ToRaw().ToStringWithoutName();
+                propertiesField.text = ArcCreateChartFileWriter.Instance.SerializeTimingGroup(Reference.GroupProperties.ToRaw(), false);
                 throw new ComposeException(I18n.S("Compose.Exception.InvalidGroupProperties", new Dictionary<string, object>
                 {
                     { "Message", e.Message },
@@ -179,13 +179,13 @@ namespace ArcCreate.Compose.EventsEditor
             ICommand cmd = new EditTimingGroupProperitesCommand(I18n.S(
                 "Compose.Notify.GroupTable.EditGroup", new Dictionary<string, object>
                 {
-                        { "Number", Reference.GroupNumber },
+                    { "Number", Reference.GroupNumber },
                 }), Reference, new GroupProperties(group));
-            
+
             Services.History.AddCommand(cmd);
             Values.ProjectModified = true;
             Values.OnEditAction?.Invoke();
-            propertiesField.text = Reference.GroupProperties.ToRaw().ToStringWithoutName();
+            propertiesField.text = ArcCreateChartFileWriter.Instance.SerializeTimingGroup(Reference.GroupProperties.ToRaw(), false);
         }
 
         private void OnVisiblity(bool vis)

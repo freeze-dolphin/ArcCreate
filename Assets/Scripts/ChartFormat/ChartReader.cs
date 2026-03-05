@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using ArcCreate.ChartFormat.Grammar;
 
 namespace ArcCreate.ChartFormat
 {
@@ -42,112 +44,15 @@ namespace ArcCreate.ChartFormat
 
         protected HashSet<string> AllFragments { get; private set; } = new HashSet<string>();
 
-        protected int TotalTimingGroup { get; set; } = 1;
-
-        protected int CurrentTimingGroup { get; set; } = 0;
-
         protected List<ChartReader> References { get; } = new List<ChartReader>();
 
         /// <summary>
         /// Start parsing with the provided <see cref="FullPath"/> and <see cref="Filename"/>.
         /// </summary>
         /// <returns>Result containing any errors found within the chart file.</returns>
-        public Result<ChartFileErrors> Parse()
-        {
-            List<ChartError> errors = new List<ChartError>();
-            TotalTimingGroup = 1;
-            CurrentTimingGroup = 0;
-            TimingGroups.Add(new RawTimingGroup() { File = Filename });
-            AllIncludes.Add(Filename);
+        public abstract Result<ChartFileErrors> Parse();
 
-            Option<string[]> lines = FileAccess.ReadFileByLines(FullPath);
-            if (!lines.HasValue)
-            {
-                errors.Add(ChartError.Format(RawEventType.Unknown, ChartError.Kind.FileDoesNotExist));
-                return new ChartFileErrors(Filename, errors);
-            }
-
-            bool atHeader = true;
-            for (int i = 0; i < lines.Value.Length; i++)
-            {
-                string line = lines.Value[i].Trim();
-                if (atHeader)
-                {
-                    Result<ChartError> result = ParseHeaderLine(line, i, FullPath, out bool endOfHeader);
-                    if (result.IsError)
-                    {
-                        errors.Add(result.Error);
-                    }
-
-                    if (endOfHeader)
-                    {
-                        atHeader = false;
-                    }
-                }
-                else
-                {
-                    var result = ParseLine(line, FullPath, i);
-                    if (result.IsError)
-                    {
-                        errors.Add(result.Error);
-                    }
-                }
-            }
-
-            foreach (ChartReader reference in References)
-            {
-                int referenceBaseGroupCount = 0;
-                int removedBaseGroup = 0;
-                foreach (RawEvent e in reference.Events)
-                {
-                    if (e.TimingGroup == 0)
-                    {
-                        referenceBaseGroupCount += 1;
-                    }
-                }
-
-                if (referenceBaseGroupCount <= 1)
-                {
-                    reference.TimingGroups.RemoveAt(0);
-                    removedBaseGroup = 1;
-                    for (int i = reference.Events.Count - 1; i >= 0; i--)
-                    {
-                        if (reference.Events[i].TimingGroup == 0)
-                        {
-                            reference.Events.RemoveAt(i);
-                        }
-                    }
-                }
-
-                foreach (RawEvent e in reference.Events)
-                {
-                    e.TimingGroup += TimingGroups.Count - removedBaseGroup;
-                }
-
-                Events.AddRange(reference.Events);
-                TimingGroups.AddRange(reference.TimingGroups);
-            }
-
-            var r = FinalValidity();
-            if (r.IsError)
-            {
-                errors.Add(r.Error);
-            }
-
-            Events.Sort((RawEvent a, RawEvent b) => { return a.Timing.CompareTo(b.Timing); });
-            if (errors.Count > 0)
-            {
-                return new ChartFileErrors(Filename, errors);
-            }
-            else
-            {
-                return Result<ChartFileErrors>.Ok();
-            }
-        }
-
-        public abstract Result<ChartError> ParseLine(string line, string path, int lineNumber);
-
-        public abstract Result<ChartError> ParseHeaderLine(string line, int lineNumber, string path, out bool endOfHeader);
+        public abstract Result<(int startLine, Dictionary<string, string>), ChartError> ParseHeader(string[] lines);
 
         public virtual Result<ChartError> FinalValidity()
         {
@@ -209,5 +114,22 @@ namespace ArcCreate.ChartFormat
 
             return files;
         }
+
+        public virtual (RawTimingGroup, List<RawEvent>) ParseTimingGroup(AntlrEvent evt, int currentTimingGroup)
+        {
+            var validator = new ChartReaderValidator(evt, RawEventType.TimingGroup);
+
+            // tg properties are connected using '_' in Arcaea
+            validator.Require(evt.Values.Count is 0 or 1);
+
+            return (
+                ParseTimingGroupProperties(evt.Raw, evt),
+                evt.Segment.Events.Select(tgEvent => ParseEvent(tgEvent, currentTimingGroup)).ToList()
+            );
+        }
+
+        public abstract RawTimingGroup ParseTimingGroupProperties(string raw, AntlrEvent evt);
+
+        public abstract RawEvent ParseEvent(AntlrEvent evt, int timingGroup);
     }
 }

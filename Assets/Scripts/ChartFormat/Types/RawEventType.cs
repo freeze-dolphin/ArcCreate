@@ -15,5 +15,8 @@ namespace ArcCreate.ChartFormat
         TimingGroupEnd,
         Include,
         Fragment,
+        
+        AntlrValue,
+        AntlrExpr
     }
 }

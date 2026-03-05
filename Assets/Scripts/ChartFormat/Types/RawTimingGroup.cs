@@ -231,18 +231,6 @@ namespace ArcCreate.ChartFormat
             return tg;
         }
 
-        public override string ToString()
-        {
-            var opts = GetPropertyStrings(true);
-            return string.Join(",", opts);
-        }
-
-        public string ToStringWithoutName()
-        {
-            var opts = GetPropertyStrings(false);
-            return string.Join(",", opts);
-        }
-
         private static bool TryGetJudgement(string mapTo, out JudgementMap result)
         {
             switch (mapTo)
@@ -261,189 +249,26 @@ namespace ArcCreate.ChartFormat
             }
         }
 
-        private static void AddRemapRules(RawTimingGroup tg, string value, params JudgementMap[] fromJudgements)
+        /*
+         * if (DropRateSerialized != 0)
+            {
+                opts.Add($"droprate={DropRateSerialized:f1}");
+            }
+         */
+        
+        public void AddRemapRules(string value, params JudgementMap[] fromJudgements)
         {
             string mapTo = value.Trim('"').ToLower();
             if (TryGetJudgement(mapTo, out JudgementMap res))
             {
                 foreach (var j in fromJudgements)
                 {
-                    tg.JudgementMaps.Add(j, res);
+                    JudgementMaps.Add(j, res);
                 }
             }
         }
 
-        private List<string> GetPropertyStrings(bool withName)
-        {
-            List<string> opts = new List<string>();
-            if (withName && !string.IsNullOrEmpty(Name))
-            {
-                opts.Add($"name=\"{Name}\"");
-            }
-
-            if (NoInput)
-            {
-                opts.Add("noinput");
-            }
-
-            if (NoClip)
-            {
-                opts.Add("noclip");
-            }
-
-            if (NoHeightIndicator)
-            {
-                opts.Add("noheightindicator");
-            }
-
-            if (NoHead)
-            {
-                opts.Add("nohead");
-            }
-
-            if (NoShadow)
-            {
-                opts.Add("noshadow");
-            }
-
-            if (NoArcCap)
-            {
-                opts.Add("noarccap");
-            }
-
-            if (FadingHolds)
-            {
-                opts.Add("fadingholds");
-            }
-
-            if (IgnoreMirror)
-            {
-                opts.Add("ignoremirror");
-            }
-
-            if (Autoplay)
-            {
-                opts.Add("autoplay");
-            }
-
-            if (NoConnection)
-            {
-                opts.Add("noconnection");
-            }
-
-            if (JudgementMaps.TryGetValue(JudgementMap.Max, out JudgementMap maxTo))
-            {
-                opts.Add($"max={GetStringFrom(maxTo)}");
-            }
-
-            if (JudgementMaps.TryGetValue(JudgementMap.PerfectEarly, out JudgementMap pearlyTo)
-            && JudgementMaps.TryGetValue(JudgementMap.PerfectLate, out JudgementMap plateTo)
-            && pearlyTo == plateTo)
-            {
-                opts.Add($"perfect={GetStringFrom(pearlyTo)}");
-            }
-            else
-            {
-                if (JudgementMaps.TryGetValue(JudgementMap.PerfectEarly, out JudgementMap pe))
-                {
-                    opts.Add($"perfectearly={GetStringFrom(pe)}");
-                }
-                if (JudgementMaps.TryGetValue(JudgementMap.PerfectLate, out JudgementMap pl))
-                {
-                    opts.Add($"perfectlate={GetStringFrom(pl)}");
-                }
-            }
-
-            if (JudgementMaps.TryGetValue(JudgementMap.GoodEarly, out JudgementMap gearlyTo)
-            && JudgementMaps.TryGetValue(JudgementMap.GoodLate, out JudgementMap glateTo)
-            && gearlyTo == glateTo)
-            {
-                opts.Add($"good={GetStringFrom(gearlyTo)}");
-            }
-            else
-            {
-                if (JudgementMaps.TryGetValue(JudgementMap.GoodEarly, out JudgementMap ge))
-                {
-                    opts.Add($"goodearly={GetStringFrom(ge)}");
-                }
-                if (JudgementMaps.TryGetValue(JudgementMap.GoodLate, out JudgementMap gl))
-                {
-                    opts.Add($"goodlate={GetStringFrom(gl)}");
-                }
-            }
-
-            if (JudgementMaps.TryGetValue(JudgementMap.MissEarly, out JudgementMap mearlyTo)
-            && JudgementMaps.TryGetValue(JudgementMap.MissLate, out JudgementMap mlateTo)
-            && mearlyTo == mlateTo)
-            {
-                opts.Add($"miss={GetStringFrom(mearlyTo)}");
-            }
-            else
-            {
-                if (JudgementMaps.TryGetValue(JudgementMap.MissEarly, out JudgementMap me))
-                {
-                    opts.Add($"missearly={GetStringFrom(me)}");
-                }
-                if (JudgementMaps.TryGetValue(JudgementMap.MissLate, out JudgementMap ml))
-                {
-                    opts.Add($"misslate={GetStringFrom(ml)}");
-                }
-            }
-
-            if (AngleX != 0)
-            {
-                opts.Add($"anglex={AngleX:f2}");
-            }
-
-            if (AngleY != 0)
-            {
-                opts.Add($"angley={AngleY:f2}");
-            }
-
-            if (ArcResolution != 1)
-            {
-                opts.Add($"arcresolution={ArcResolution:f1}");
-            }
-
-            if (DropRateSerialized != 0)
-            {
-                opts.Add($"droprate={DropRateSerialized:f1}");
-            }
-
-            if (JudgementOffsetX != 0)
-            {
-                opts.Add($"judgeoffsetx={JudgementOffsetX:f1}");
-            }
-
-            if (JudgementOffsetY != 0)
-            {
-                opts.Add($"judgeoffsety={JudgementOffsetY:f1}");
-            }
-
-            if (JudgementOffsetZ != 0)
-            {
-                opts.Add($"judgeoffsetz={JudgementOffsetZ:f1}");
-            }
-
-            if (JudgementSizeX != 1)
-            {
-                opts.Add($"judgesizex={JudgementSizeX:f1}");
-            }
-
-            if (JudgementSizeY != 1)
-            {
-                opts.Add($"judgesizey={JudgementSizeY:f1}");
-            }
-
-            if (Side != SideOverride.None)
-            {
-                opts.Add(Side == SideOverride.Light ? "light" : "conflict");
-            }
-
-            return opts;
-        }
-
-        private string GetStringFrom(JudgementMap j)
+        public string SerializeJudgementMap(JudgementMap j)
         {
             switch (j)
             {
