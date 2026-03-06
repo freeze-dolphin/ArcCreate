@@ -22,7 +22,8 @@ namespace ArcCreate.ChartFormat
         /// <param name="relativeDirectory">The directory relative to the base folder.</param>
         /// <param name="fullPath">The absolute path leading to the file.</param>
         /// <param name="filename">The file name. Passed as-is from include and fragment aff commands.</param>
-        public ArcCreateChartReader(IFileAccessWrapper fileAccess, string relativeDirectory, string fullPath, string filename)
+        public ArcCreateChartReader(IFileAccessWrapper fileAccess, string relativeDirectory, string fullPath,
+            string filename)
             : base(fileAccess, relativeDirectory, fullPath, filename)
         {
             TimingPointDensity = 1;
@@ -107,7 +108,8 @@ namespace ArcCreate.ChartFormat
             }
             catch (ChartReaderException ex)
             {
-                errors.Add(ChartError.Property(ex.Raw, ex.LineNumber, ex.EventType, 0, ex.Raw.Length, ChartError.Kind.Parsing));
+                errors.Add(ChartError.Property(ex.Raw, ex.LineNumber, ex.EventType, 0, ex.Raw.Length,
+                    ChartError.Kind.Parsing));
             }
 
             foreach (ChartReader reference in References)
@@ -177,30 +179,39 @@ namespace ArcCreate.ChartFormat
         {
             var propDict = new Dictionary<string, string>();
 
-            if (!string.IsNullOrWhiteSpace(raw))
+            foreach (var antlrValue in evt.Values)
             {
-                foreach (var antlrValue in evt.Values)
+                switch (antlrValue.Type)
                 {
-                    if (antlrValue.Type == AntlrValueType.String)
+                    case AntlrValueType.String:
                     {
-                        propDict.Add(antlrValue.GetStringValue(), null);
+                        var value = antlrValue.GetStringValue();
+                        if (!string.IsNullOrWhiteSpace(value)) propDict.Add(value, null);
+                        break;
                     }
-
-                    else
+                    case AntlrValueType.KeyValuePair:
                     {
                         var (key, aValue) = antlrValue.GetKeyValuePair();
-                        if (aValue.HasKeyValuePair)
+
+                        if (aValue.IsStringValue)
                         {
                             propDict.Add(key, aValue.GetStringValue());
                         }
-                        else if (aValue.HasAlgebraicValue)
+                        else if (aValue.IsAlgebraicValue)
                         {
                             propDict.Add(key, aValue.GetAlgebraicValue().ToString(CultureInfo.InvariantCulture));
                         }
+                        else
+                        {
+                            throw new AntlrParseException("Nested key-value pair is not allowed", evt.Raw,
+                                RawEventType.AntlrValue, evt.LineNumber, evt.ColumnNumber);
+                        }
 
-                        throw new AntlrParseException("Recursive key-value pair is not allowed", evt.Raw,
-                            RawEventType.AntlrValue, evt.LineNumber, evt.ColumnNumber);
+                        break;
                     }
+                    default:
+                        throw new AntlrParseException("Algebraic value is not allowed", evt.Raw,
+                            RawEventType.AntlrValue, evt.LineNumber, evt.ColumnNumber);
                 }
             }
 
@@ -380,7 +391,11 @@ namespace ArcCreate.ChartFormat
             validator.Require(evt.Values[1].TryGetAlgebraicValue(out var endTick));
             validator.Require(evt.Values[2].TryGetAlgebraicValue(out var track));
 
-            if (endTick <= tick) throw new ChartReaderException(evt.Raw, RawEventType.Hold, evt, ChartError.Kind.DurationNegative);
+            if (Mathf.Approximately((float)endTick, (float)tick))
+                throw new ChartReaderException(evt.Raw, RawEventType.Hold, evt, ChartError.Kind.DurationZero);
+
+            if (endTick < tick)
+                throw new ChartReaderException(evt.Raw, RawEventType.Hold, evt, ChartError.Kind.DurationNegative);
 
             return new RawHold
             {
@@ -400,7 +415,8 @@ namespace ArcCreate.ChartFormat
             validator.Require(evt.Values.Count == 3);
             validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
             validator.Require(evt.Values[1].TryGetAlgebraicValue(out var bpm));
-            validator.Require(evt.Values[2].TryGetAlgebraicValue(out var divisor) && divisor >= 0, ChartError.Kind.DivisorNegative);
+            validator.Require(evt.Values[2].TryGetAlgebraicValue(out var divisor) && divisor >= 0,
+                ChartError.Kind.DivisorNegative);
 
             return new RawTiming
             {
@@ -425,11 +441,13 @@ namespace ArcCreate.ChartFormat
             validator.Require(evt.Values[4].TryGetStringValue(out var lineType));
             validator.Require(evt.Values[5].TryGetAlgebraicValue(out var yStart));
             validator.Require(evt.Values[6].TryGetAlgebraicValue(out var yEnd));
-            validator.Require(evt.Values[7].TryGetAlgebraicValue(out var color) && color >= 0, ChartError.Kind.ArcColorNegative);
+            validator.Require(evt.Values[7].TryGetAlgebraicValue(out var color) && color >= 0,
+                ChartError.Kind.ArcColorNegative);
             validator.Require(evt.Values[8].TryGetStringValue(out var hitSound));
             validator.Require(evt.Values[9].TryGetStringValue(out var arcType));
 
-            if (endTick < tick) throw new ChartReaderException(evt.Raw, RawEventType.Arc, evt, ChartError.Kind.DurationNegative);
+            if (endTick < tick)
+                throw new ChartReaderException(evt.Raw, RawEventType.Arc, evt, ChartError.Kind.DurationNegative);
 
             double arcResolution = 1.0;
             if (evt.Properties.TryGetValue(RawArc.ArcResolutionKey, out var arcResolutionRaw) &&
@@ -494,7 +512,7 @@ namespace ArcCreate.ChartFormat
             };
         }
 
-        protected virtual RawSceneControl ParseSceneControl(AntlrEvent evt, int timingGroup)
+        public virtual RawSceneControl ParseSceneControl(AntlrEvent evt, int timingGroup)
         {
             const string trackDisplay = "trackdisplay";
 
@@ -597,7 +615,7 @@ namespace ArcCreate.ChartFormat
             };
         }
 
-        protected virtual RawCamera ParseCamera(AntlrEvent evt, int timingGroup)
+        public virtual RawCamera ParseCamera(AntlrEvent evt, int timingGroup)
         {
             var validator = new ChartReaderValidator(evt, RawEventType.Camera);
 
@@ -610,7 +628,8 @@ namespace ArcCreate.ChartFormat
             validator.Require(evt.Values[5].TryGetAlgebraicValue(out var ry));
             validator.Require(evt.Values[6].TryGetAlgebraicValue(out var rz));
             validator.Require(evt.Values[7].TryGetStringValue(out var type));
-            validator.Require(evt.Values[8].TryGetAlgebraicValue(out var duration) && duration >= 0, ChartError.Kind.DurationNegative);
+            validator.Require(evt.Values[8].TryGetAlgebraicValue(out var duration) && duration >= 0,
+                ChartError.Kind.DurationNegative);
 
             return new RawCamera
             {
@@ -625,7 +644,7 @@ namespace ArcCreate.ChartFormat
             };
         }
 
-        protected virtual RawInclude ParseInclude(AntlrEvent evt)
+        public virtual RawInclude ParseInclude(AntlrEvent evt)
         {
             var validator = new ChartReaderValidator(evt, RawEventType.Include);
 
@@ -638,7 +657,7 @@ namespace ArcCreate.ChartFormat
             };
         }
 
-        protected virtual RawFragment ParseFragment(AntlrEvent evt)
+        public virtual RawFragment ParseFragment(AntlrEvent evt)
         {
             var validator = new ChartReaderValidator(evt, RawEventType.Fragment);
 
@@ -649,7 +668,7 @@ namespace ArcCreate.ChartFormat
             return new RawFragment
             {
                 Timing = (int)evt.Values[0].GetAlgebraicValue(),
-                File = evt.Values[0].GetStringValue()
+                File = evt.Values[1].GetStringValue()
             };
         }
 

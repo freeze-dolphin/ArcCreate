@@ -23,9 +23,9 @@ namespace ArcCreate.ChartFormat.Grammar
         private double AlgebraicValue { get; }
         private Tuple<string, AntlrValue> KeyValuePair { get; }
 
-        public bool HasStringValue { get; protected set; }
-        public bool HasAlgebraicValue { get; protected set; }
-        public bool HasKeyValuePair { get; protected set; }
+        public bool IsStringValue { get; protected set; }
+        public bool IsAlgebraicValue { get; protected set; }
+        public bool IsKeyValuePair { get; protected set; }
 
         public static AntlrValue GetEmpty(IToken start) =>
             new("", AntlrValueType.String, start, stringValue: "");
@@ -55,19 +55,19 @@ namespace ArcCreate.ChartFormat.Grammar
                     if (stringValue == null)
                         throw new ArgumentException("Invalid value", nameof(stringValue));
 
-                    HasStringValue = true;
+                    IsStringValue = true;
                     break;
                 case AntlrValueType.Algebraic:
                     if (double.IsNaN(AlgebraicValue))
                         throw new ArgumentException("Invalid value", nameof(algebraicValue));
 
-                    HasAlgebraicValue = true;
+                    IsAlgebraicValue = true;
                     break;
                 case AntlrValueType.KeyValuePair:
                     if (keyValuePair == null)
                         throw new ArgumentException("Invalid value", nameof(keyValuePair));
 
-                    HasKeyValuePair = true;
+                    IsKeyValuePair = true;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type));
@@ -91,30 +91,30 @@ namespace ArcCreate.ChartFormat.Grammar
         }
 
         public string GetStringValue() =>
-            HasStringValue ? StringValue : throw new InvalidOperationException();
+            IsStringValue ? StringValue : throw new InvalidOperationException();
 
         public double GetAlgebraicValue() =>
-            HasAlgebraicValue ? AlgebraicValue : throw new InvalidOperationException();
+            IsAlgebraicValue ? AlgebraicValue : throw new InvalidOperationException();
 
         public Tuple<string, AntlrValue> GetKeyValuePair() =>
-            HasKeyValuePair ? KeyValuePair : throw new InvalidOperationException();
+            IsKeyValuePair ? KeyValuePair : throw new InvalidOperationException();
 
         public bool TryGetStringValue(out string stringValue)
         {
             stringValue = StringValue;
-            return HasStringValue;
+            return IsStringValue;
         }
 
         public bool TryGetAlgebraicValue(out double algebraicValue)
         {
             algebraicValue = AlgebraicValue;
-            return HasAlgebraicValue;
+            return IsAlgebraicValue;
         }
 
         public bool TryGetKeyValuePair(out Tuple<string, AntlrValue> keyValuePair)
         {
             keyValuePair = KeyValuePair;
-            return HasKeyValuePair;
+            return IsKeyValuePair;
         }
 
         public override string ToString() =>

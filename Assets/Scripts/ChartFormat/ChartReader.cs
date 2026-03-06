@@ -117,11 +117,6 @@ namespace ArcCreate.ChartFormat
 
         public virtual (RawTimingGroup, List<RawEvent>) ParseTimingGroup(AntlrEvent evt, int currentTimingGroup)
         {
-            var validator = new ChartReaderValidator(evt, RawEventType.TimingGroup);
-
-            // tg properties are connected using '_' in Arcaea
-            validator.Require(evt.Values.Count is 0 or 1);
-
             return (
                 ParseTimingGroupProperties(evt.Raw, evt),
                 evt.Segment.Events.Select(tgEvent => ParseEvent(tgEvent, currentTimingGroup)).ToList()
