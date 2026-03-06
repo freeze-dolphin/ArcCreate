@@ -1,8 +1,6 @@
-using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Antlr4.Runtime;
 using ArcCreate.ChartFormat.Grammar;
 using ArcCreate.Utility.Parser;
@@ -13,10 +11,13 @@ namespace ArcCreate.ChartFormat
     /// <summary>
     /// Object for reading a .aff chart file.
     /// </summary>
-    public class ArcaeaChartReader : ChartReader
+    public class ArcaeaChartReader : ArcCreateChartReader
     {
-        public ArcaeaChartReader(IFileAccessWrapper fileAccess, string relativeDirectory, string fullPath, string filename)
-            : base(fileAccess, relativeDirectory, fullPath, filename)
+        public static readonly Color DesignantColor = new Color32(240, 41, 97, byte.MaxValue);
+
+        public ArcaeaChartReader(IFileAccessWrapper fileAccess, string relativeDirectory, string fullPath,
+            string fileName)
+            : base(fileAccess, relativeDirectory, fullPath, fileName)
         {
             TimingPointDensity = 1;
             AudioOffset = 0;
@@ -26,14 +27,14 @@ namespace ArcCreate.ChartFormat
         {
             var errors = new List<ChartError>();
 
-            TimingGroups.Add(new RawTimingGroup() { File = Filename });
-            AllIncludes.Add(Filename);
+            TimingGroups.Add(new RawTimingGroup { File = FileName });
+            AllIncludes.Add(FileName);
 
             var lines = FileAccess.ReadFileByLines(FullPath);
             if (!lines.HasValue)
             {
                 errors.Add(ChartError.Format(RawEventType.Unknown, ChartError.Kind.FileDoesNotExist));
-                return new ChartFileErrors(Filename, errors);
+                return new ChartFileErrors(FileName, errors);
             }
 
             #region Header
@@ -41,7 +42,7 @@ namespace ArcCreate.ChartFormat
             if (!ParseHeader(lines.Value).TryUnwrap(out var headerParseResult, out var error))
             {
                 errors.Add(error);
-                return new ChartFileErrors(Filename, errors);
+                return new ChartFileErrors(FileName, errors);
             }
 
             var (headerLineNumber, headerDict) = headerParseResult;
@@ -65,7 +66,7 @@ namespace ArcCreate.ChartFormat
 
             #endregion
 
-            var antlrInput = new AntlrInputStream(string.Join("\n", lines.Value.Skip(headerLineNumber)));
+            var antlrInput = new AntlrInputStream(string.Join("\n", lines.Value.Skip(headerLineNumber + 1)));
             var lexer = new UniversalAffChartLexer(antlrInput);
             var tokens = new CommonTokenStream(lexer);
             var parser = new UniversalAffChartParser(tokens);
@@ -77,7 +78,7 @@ namespace ArcCreate.ChartFormat
 
             try
             {
-                var chartSegment = (AntlrEventSegment)visitor.VisitChart(parser.chart());
+                var chartSegment = visitor.VisitChartTyped(parser.chart());
 
                 foreach (var evt in chartSegment.Events)
                 {
@@ -100,7 +101,8 @@ namespace ArcCreate.ChartFormat
             }
             catch (ChartReaderException ex)
             {
-                errors.Add(ChartError.Property(ex.Raw, ex.LineNumber, ex.EventType, 0, ex.Raw.Length, ChartError.Kind.Parsing));
+                errors.Add(ChartError.Property(ex.Raw, ex.LineNumber, ex.EventType, 0, ex.Raw.Length,
+                    ex.ErrorKind));
             }
 
             foreach (ChartReader reference in References)
@@ -136,73 +138,46 @@ namespace ArcCreate.ChartFormat
             Events.Sort((a, b) => a.Timing.CompareTo(b.Timing));
 
             return errors.Count > 0
-                ? new ChartFileErrors(Filename, errors)
+                ? new ChartFileErrors(FileName, errors)
                 : Result<ChartFileErrors>.Ok();
-        }
-
-        public override Result<(int startLine, Dictionary<string, string>), ChartError> ParseHeader(string[] lines)
-        {
-            var headerItems = new Dictionary<string, string>();
-
-            for (int lineNumber = 0; lineNumber < lines.Length; lineNumber++)
-            {
-                var line = lines[lineNumber];
-                if (line.StartsWith('-'))
-                {
-                    return (lineNumber, headerItems);
-                }
-
-                StringParser s = new StringParser(line);
-                if (!s.ReadString(":").TryUnwrap(out TextSpan<string> headerType, out ParsingError e) ||
-                    !s.ReadString().TryUnwrap(out var value, out e))
-                {
-                    return ChartError.Parsing(line, lineNumber, RawEventType.Header, e);
-                }
-
-                headerItems.Add(headerType, value);
-            }
-
-            return ChartError.Parsing("-", 0, RawEventType.Header,
-                new ParsingError("No header found", 0, lines[0].Length, ParsingError.Kind.CharacterNotFound));
         }
 
         public override RawTimingGroup ParseTimingGroupProperties(string raw, AntlrEvent evt)
         {
             var validator = new ChartReaderValidator(evt, RawEventType.TimingGroup);
 
-            // tg properties are connected using '_' in Arcaea
+            // timing group properties are connected by '_' in Arcaea
             validator.Require(evt.Values.Count is 0 or 1);
-            
+
             var propDict = new Dictionary<string, string>();
 
-            if (!string.IsNullOrWhiteSpace(raw))
+            if (evt.Values.Count > 0 && !evt.Values[0].IsEmpty)
             {
-                foreach (var antlrValue in evt.Values)
+                // https://regex101.com/r/wTAqy8/2
+                const string pattern = @"([a-zA-Z]+)(-?(0|([1-9][0-9]*))(\.\d+)?)?";
+                var regex = new Regex(pattern, RegexOptions.Compiled);
+
+                foreach (var propRaw in evt.Values[0].GetStringValue().Split("_"))
                 {
-                    if (antlrValue.Type == AntlrValueType.String)
-                    {
-                        propDict.Add(antlrValue.GetStringValue(), null);
-                    }
+                    var match = regex.Match(propRaw);
 
-                    else
+                    if (!match.Success)
                     {
-                        var (key, aValue) = antlrValue.GetKeyValuePair();
-                        if (aValue.IsKeyValuePair)
-                        {
-                            propDict.Add(key, aValue.GetStringValue());
-                        }
-                        else if (aValue.IsAlgebraicValue)
-                        {
-                            propDict.Add(key, aValue.GetAlgebraicValue().ToString(CultureInfo.InvariantCulture));
-                        }
-
-                        throw new AntlrParseException("Nested key-value pair is not allowed", evt.Raw,
+                        throw new AntlrParseException("Invalid timing group properties", evt.Raw,
                             RawEventType.AntlrValue, evt.LineNumber, evt.ColumnNumber);
                     }
+
+                    string name = match.Groups[1].Value;
+                    string value = match.Groups[2].Success ? match.Groups[2].Value : null;
+
+                    propDict.Add(name, value);
                 }
             }
 
-            var prop = new RawTimingGroup();
+            var prop = new RawTimingGroup
+            {
+                File = FileName
+            };
 
             foreach (var (type, value) in propDict)
             {
@@ -215,6 +190,8 @@ namespace ArcCreate.ChartFormat
                         case "name":
                             prop.Name = value.Trim('"');
                             break;
+
+                        // https://github.com/freeze-dolphin/aff-compose/blob/17d0948c3f3726336661df4b68b0e5e2a86e3ef6/src/commonMain/kotlin/com/tairitsu/compose/filter/ShimFilter.kt#L41-L45
                         case "anglex":
                             valid = Evaluator.TryFloat(value, out val);
                             prop.AngleX = valid ? val / 10 : 0;
@@ -223,9 +200,11 @@ namespace ArcCreate.ChartFormat
                             valid = Evaluator.TryFloat(value, out val);
                             prop.AngleY = valid ? val / 10 : 0;
                             break;
-                        default:
+
+                        // don't throw exceptions to allow user add identifier for tg
+                        /*default:
                             throw new ChartReaderException(raw, RawEventType.TimingGroup, evt,
-                                ChartError.Kind.TimingGroupPropertiesInvalid);
+                                ChartError.Kind.TimingGroupPropertiesInvalid);*/
                     }
                 }
                 else
@@ -235,42 +214,14 @@ namespace ArcCreate.ChartFormat
                         case "noinput":
                             prop.NoInput = true;
                             break;
-                        case "noclip":
-                            prop.NoClip = true;
-                            break;
-                        case "noheightindicator":
-                            prop.NoHeightIndicator = true;
-                            break;
-                        case "nohead":
-                            prop.NoHead = true;
-                            break;
-                        case "noshadow":
-                            prop.NoShadow = true;
-                            break;
-                        case "noarccap":
-                            prop.NoArcCap = true;
-                            break;
-                        case "noconnection":
-                            prop.NoConnection = true;
-                            break;
-                        case "light":
-                            prop.Side = SideOverride.Light;
-                            break;
-                        case "conflict":
-                            prop.Side = SideOverride.Conflict;
-                            break;
                         case "fadingholds":
                             prop.FadingHolds = true;
                             break;
-                        case "ignoremirror":
-                            prop.IgnoreMirror = true;
-                            break;
-                        case "autoplay":
-                            prop.Autoplay = true;
-                            break;
-                        default:
+
+                        // don't throw exceptions to allow user add identifier for tg
+                        /*default:
                             throw new ChartReaderException(raw, RawEventType.TimingGroup, evt,
-                                ChartError.Kind.TimingGroupPropertiesInvalid);
+                                ChartError.Kind.TimingGroupPropertiesInvalid);*/
                     }
                 }
             }
@@ -280,129 +231,190 @@ namespace ArcCreate.ChartFormat
 
         public override RawEvent ParseEvent(AntlrEvent evt, int timingGroup) => evt.Name switch
         {
-            null or "" => ParseTap(evt, timingGroup),
+            null or "" or "tap" => ParseTap(evt, timingGroup),
             "hold" => ParseHold(evt, timingGroup),
             "timing" => ParseTiming(evt, timingGroup),
             "arc" => ParseArc(evt, timingGroup),
             "scenecontrol" => ParseSceneControl(evt, timingGroup),
             "camera" => ParseCamera(evt, timingGroup),
-            "include" => ParseInclude(evt),
-            "fragment" => ParseFragment(evt),
 
             _ => throw new ChartReaderException(evt.Raw, RawEventType.Unknown, evt, ChartError.Kind.Parsing)
         };
 
-        protected virtual RawTap ParseTap(AntlrEvent evt, int timingGroup)
+        public override RawTap ParseTap(AntlrEvent evt, int timingGroup)
         {
             var validator = new ChartReaderValidator(evt, RawEventType.Tap);
 
             validator.Require(evt.Values.Count == 2);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
-            validator.Require(evt.Values[1].TryGetAlgebraicValue(out var lane));
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
+
+            float lane;
+            if (evt.Values[1].TryGetIntegerValue(out int intLane))
+            {
+                lane = intLane;
+            }
+            else
+            {
+                validator.Require(evt.Values[1].TryGetAlgebraicValue(out double floatedLane));
+                lane = (float)ParsingFormula.ArcaeaFloatedLaneToLane(floatedLane);
+            }
 
             return new RawTap
             {
-                Timing = (int)tick,
-                Lane = (float)lane,
+                Timing = tick,
+                Lane = lane,
                 Type = RawEventType.Tap,
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber
             };
         }
 
-        protected virtual RawHold ParseHold(AntlrEvent evt, int timingGroup)
+        public override RawHold ParseHold(AntlrEvent evt, int timingGroup)
         {
             var validator = new ChartReaderValidator(evt, RawEventType.Hold);
 
             validator.Require(evt.Values.Count == 3);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
-            validator.Require(evt.Values[1].TryGetAlgebraicValue(out var endTick));
-            validator.Require(evt.Values[2].TryGetAlgebraicValue(out var track));
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
+            validator.Require(evt.Values[1].TryGetIntegerValue(out var endTick));
 
-            if (endTick <= tick) throw new ChartReaderException(evt.Raw, RawEventType.Hold, evt, ChartError.Kind.DurationNegative);
+            float lane;
+            if (evt.Values[2].TryGetIntegerValue(out int intLane))
+            {
+                lane = intLane;
+            }
+            else
+            {
+                validator.Require(evt.Values[2].TryGetAlgebraicValue(out double floatedLane));
+                lane = (float)ParsingFormula.ArcaeaFloatedLaneToLane(floatedLane);
+            }
+
+            if (Mathf.Approximately(endTick, tick))
+                throw new ChartReaderException(evt.Raw, RawEventType.Hold, evt, ChartError.Kind.DurationZero);
+
+            if (endTick < tick)
+                throw new ChartReaderException(evt.Raw, RawEventType.Hold, evt, ChartError.Kind.DurationNegative);
 
             return new RawHold
             {
-                Timing = (int)tick,
-                EndTiming = (int)endTick,
-                Lane = (float)track,
+                Timing = tick,
+                EndTiming = endTick,
+                Lane = lane,
                 Type = RawEventType.Hold,
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber
             };
         }
 
-        protected virtual RawTiming ParseTiming(AntlrEvent evt, int timingGroup)
-        {
-            var validator = new ChartReaderValidator(evt, RawEventType.Timing);
-
-            validator.Require(evt.Values.Count == 3);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
-            validator.Require(evt.Values[1].TryGetAlgebraicValue(out var bpm));
-            validator.Require(evt.Values[2].TryGetAlgebraicValue(out var divisor) && divisor >= 0, ChartError.Kind.DivisorNegative);
-
-            return new RawTiming
-            {
-                Timing = (int)tick,
-                Divisor = (float)divisor,
-                Bpm = (float)bpm,
-                Type = RawEventType.Timing,
-                TimingGroup = timingGroup,
-                Line = evt.LineNumber
-            };
-        }
-
-        protected virtual RawArc ParseArc(AntlrEvent evt, int timingGroup)
+        public override RawArc ParseArc(AntlrEvent evt, int timingGroup)
         {
             var validator = new ChartReaderValidator(evt, RawEventType.Arc);
 
             validator.Require(evt.Values.Count is >= 10 and <= 11);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
-            validator.Require(evt.Values[1].TryGetAlgebraicValue(out var endTick));
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
+            validator.Require(evt.Values[1].TryGetIntegerValue(out var endTick));
             validator.Require(evt.Values[2].TryGetAlgebraicValue(out var xStart));
             validator.Require(evt.Values[3].TryGetAlgebraicValue(out var xEnd));
             validator.Require(evt.Values[4].TryGetStringValue(out var lineType));
             validator.Require(evt.Values[5].TryGetAlgebraicValue(out var yStart));
             validator.Require(evt.Values[6].TryGetAlgebraicValue(out var yEnd));
-            validator.Require(evt.Values[7].TryGetAlgebraicValue(out var color) && color >= 0, ChartError.Kind.ArcColorNegative);
+            validator.Require(evt.Values[7].TryGetIntegerValue(out var color) && color >= 0,
+                ChartError.Kind.ArcColorNegative);
             validator.Require(evt.Values[8].TryGetStringValue(out var hitSound));
             validator.Require(evt.Values[9].TryGetStringValue(out var arcType));
 
-            if (endTick < tick) throw new ChartReaderException(evt.Raw, RawEventType.Arc, evt, ChartError.Kind.DurationNegative);
+            if (endTick < tick)
+                throw new ChartReaderException(evt.Raw, RawEventType.Arc, evt, ChartError.Kind.DurationNegative);
 
             double arcResolution = 1.0;
-            if (evt.Properties.TryGetValue(RawArc.ArcResolutionKey, out var arcResolutionRaw) &&
-                arcResolutionRaw.TryGetAlgebraicValue(out arcResolution)) // try get arcResolution from properties first
+            if (!(evt.Properties.TryGetValue(RawArc.PropertyArcResolutionKey, out var arcResolutionRaw) &&
+
+                  // try get arcResolution from properties first
+                  arcResolutionRaw.TryGetAlgebraicValue(out arcResolution)) &&
+                evt.Values.Count >= 11)
             {
+                // if not presented in properties, try parse from Arc parameters
+                evt.Values[10].TryGetAlgebraicValue(out arcResolution);
+            }
+
+            var isDesignant = arcType == "designant";
+            var isTrace = arcType is "true" or "designant";
+
+            RawArc arc;
+
+            if (tick == endTick &&
+                Mathf.Approximately((float)yStart, (float)yEnd) &&
+                color == 3)
+            {
+                // var-len arctap
+
+                var xCenter = (float)(xStart + xEnd) / 2;
+                var yCenter = (float)((yStart + yEnd) / 2);
+
+                var width = Mathf.Abs((float)(xStart - xEnd)) * 2;
+
+                arc = new RawArc
+                {
+                    Timing = tick,
+                    EndTiming = tick + 1,
+                    XStart = xCenter,
+                    XEnd = xCenter,
+                    LineType = lineType,
+                    YStart = yCenter,
+                    YEnd = yCenter,
+                    Color = color,
+                    IsTrace = true,
+                    ArcTaps = new List<RawArcTap>
+                    {
+                        new()
+                        {
+                            Type = RawEventType.ArcTap,
+                            Timing = tick,
+                            TimingGroup = timingGroup,
+                            Width = width,
+                            Line = evt.LineNumber,
+                            CharacterStart = evt.ColumnNumber,
+                            Length = evt.Raw.Length
+                        }
+                    }
+                };
             }
             else
             {
-                // if not presented in properties, try parse from Arc parameters
-                if (evt.Values.Count >= 11) evt.Values[10].TryGetAlgebraicValue(out arcResolution);
+                // normal arc
+
+                arc = new RawArc
+                {
+                    Timing = tick,
+                    EndTiming = endTick,
+                    XStart = (float)xStart,
+                    XEnd = (float)xEnd,
+                    LineType = lineType,
+                    YStart = (float)yStart,
+                    YEnd = (float)yEnd,
+                    Color = color,
+                    IsTrace = isTrace,
+                    ArcTaps = evt.SubEvents.Select(x => ParseArcTap(x, timingGroup, tick, endTick)).ToList(),
+                    Sfx = hitSound,
+                    TimingGroup = timingGroup,
+                    Line = evt.LineNumber,
+                    ArcResolution = (float)arcResolution
+                };
             }
 
-            var isTrace = arcType is "true" or "designant";
+            TryApplyDesignant(arc, isDesignant);
 
-            return new RawArc
+            return arc;
+
+            void TryApplyDesignant(RawArc rawArc, bool shouldApply)
             {
-                Timing = (int)tick,
-                EndTiming = (int)endTick,
-                XStart = (float)xStart,
-                XEnd = (float)xEnd,
-                LineType = lineType,
-                YStart = (float)yStart,
-                YEnd = (float)yEnd,
-                Color = (int)color,
-                IsTrace = isTrace,
-                ArcTaps = evt.SubEvents.Select(x => ParseArcTap(x, timingGroup, (int)tick, (int)endTick)).ToList(),
-                Sfx = hitSound,
-                TimingGroup = timingGroup,
-                Line = evt.LineNumber,
-                ArcResolution = (float)arcResolution
-            };
+                if (shouldApply)
+                {
+                    rawArc.StainedColor = DesignantColor;
+                }
+            }
         }
 
-        protected virtual RawArcTap ParseArcTap(AntlrEvent evt, int timingGroup, int parentTick, int parentEndTick)
+        protected override RawArcTap ParseArcTap(AntlrEvent evt, int timingGroup, int parentTick, int parentEndTick)
         {
             if (evt.Name != "arctap")
             {
@@ -410,37 +422,34 @@ namespace ArcCreate.ChartFormat
             }
 
             var validator = new ChartReaderValidator(evt, RawEventType.ArcTap);
-            validator.Require(evt.Values.Count is 1 or 2);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
+            validator.Require(evt.Values.Count is 1);
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
 
             if (tick < parentTick || tick > parentEndTick)
             {
                 throw new ChartReaderException(evt.Raw, RawEventType.ArcTap, evt, ChartError.Kind.ArcTapOutOfRange);
             }
 
-            double width = 1;
-            if (evt.Values.Count >= 2) evt.Values[1].TryGetAlgebraicValue(out width);
-
             return new RawArcTap
             {
                 Type = RawEventType.ArcTap,
-                Timing = (int)tick,
+                Timing = tick,
                 TimingGroup = timingGroup,
-                Width = (float)width,
+                Width = 1,
                 Line = evt.LineNumber,
                 CharacterStart = evt.ColumnNumber,
                 Length = evt.Raw.Length
             };
         }
 
-        protected virtual RawSceneControl ParseSceneControl(AntlrEvent evt, int timingGroup)
+        public override RawSceneControl ParseSceneControl(AntlrEvent evt, int timingGroup)
         {
             const string trackDisplay = "trackdisplay";
 
             var validator = new ChartReaderValidator(evt, RawEventType.SceneControl);
 
             validator.Require(evt.Values.Count >= 2);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
             validator.Require(evt.Values[1].TryGetStringValue(out var type));
 
             // parameter-less
@@ -450,7 +459,7 @@ namespace ArcCreate.ChartFormat
                     // https://github.com/freeze-dolphin/aff-compose/blob/17d0948c3f3726336661df4b68b0e5e2a86e3ef6/src/commonMain/kotlin/com/tairitsu/compose/filter/ShimFilter.kt#L29
                     "trackhide" => new RawSceneControl
                     {
-                        Timing = (int)tick,
+                        Timing = tick,
                         Type = RawEventType.SceneControl,
                         Arguments = new List<object>
                         {
@@ -465,7 +474,7 @@ namespace ArcCreate.ChartFormat
                     // https://github.com/freeze-dolphin/aff-compose/blob/17d0948c3f3726336661df4b68b0e5e2a86e3ef6/src/commonMain/kotlin/com/tairitsu/compose/filter/ShimFilter.kt#L30
                     "trackshow" => new RawSceneControl
                     {
-                        Timing = (int)tick,
+                        Timing = tick,
                         Type = RawEventType.SceneControl,
                         Arguments = new List<object>
                         {
@@ -479,7 +488,7 @@ namespace ArcCreate.ChartFormat
 
                     _ => new RawSceneControl
                     {
-                        Timing = (int)tick,
+                        Timing = tick,
                         Type = RawEventType.SceneControl,
                         Arguments = new List<object>(),
                         SceneControlTypeName = type,
@@ -492,19 +501,17 @@ namespace ArcCreate.ChartFormat
             var param = evt.Values.GetRange(2, evt.Values.Count - 2);
             validator.Require(param.All(x => x.Type is AntlrValueType.String or AntlrValueType.Algebraic));
 
-            var typedParam = param.Select(x =>
+            var typedParam = param.Select(x => x.Type switch
             {
-                return x.Type switch
-                {
-                    AntlrValueType.String => x.GetStringValue(),
-                    AntlrValueType.Algebraic => (object)x.GetAlgebraicValue(),
-                    _ => ChartError.Property(x.Raw,
-                        evt.LineNumber,
-                        RawEventType.SceneControl,
-                        0,
-                        evt.Raw.Length,
-                        ChartError.Kind.Parsing)
-                };
+                AntlrValueType.String => x.GetStringValue(),
+                AntlrValueType.Integer => x.GetIntegerValue(),
+                AntlrValueType.Algebraic => (object)x.GetAlgebraicValue(),
+                _ => ChartError.Property(x.Raw,
+                    evt.LineNumber,
+                    RawEventType.SceneControl,
+                    0,
+                    evt.Raw.Length,
+                    ChartError.Kind.Parsing)
             }).ToList();
 
             return type.ToLower() switch
@@ -512,7 +519,7 @@ namespace ArcCreate.ChartFormat
                 // https://github.com/freeze-dolphin/aff-compose/blob/17d0948c3f3726336661df4b68b0e5e2a86e3ef6/src/commonMain/kotlin/com/tairitsu/compose/filter/ShimFilter.kt#L32-L36
                 trackDisplay => new RawSceneControl
                 {
-                    Timing = (int)tick,
+                    Timing = tick,
                     Type = RawEventType.SceneControl,
                     Arguments = new List<object>
                     {
@@ -526,7 +533,7 @@ namespace ArcCreate.ChartFormat
 
                 _ => new RawSceneControl
                 {
-                    Timing = (int)tick,
+                    Timing = tick,
                     Type = RawEventType.SceneControl,
                     Arguments = typedParam,
                     SceneControlTypeName = type,
@@ -534,130 +541,6 @@ namespace ArcCreate.ChartFormat
                     Line = evt.LineNumber
                 }
             };
-        }
-
-        protected virtual RawCamera ParseCamera(AntlrEvent evt, int timingGroup)
-        {
-            var validator = new ChartReaderValidator(evt, RawEventType.Camera);
-
-            validator.Require(evt.Values.Count == 9);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
-            validator.Require(evt.Values[1].TryGetAlgebraicValue(out var mx));
-            validator.Require(evt.Values[2].TryGetAlgebraicValue(out var my));
-            validator.Require(evt.Values[3].TryGetAlgebraicValue(out var mz));
-            validator.Require(evt.Values[4].TryGetAlgebraicValue(out var rx));
-            validator.Require(evt.Values[5].TryGetAlgebraicValue(out var ry));
-            validator.Require(evt.Values[6].TryGetAlgebraicValue(out var rz));
-            validator.Require(evt.Values[7].TryGetStringValue(out var type));
-            validator.Require(evt.Values[8].TryGetAlgebraicValue(out var duration) && duration >= 0, ChartError.Kind.DurationNegative);
-
-            return new RawCamera
-            {
-                TimingGroup = timingGroup,
-                Timing = (int)tick,
-                Duration = (int)duration,
-                Move = new Vector3((float)mx, (float)my, (float)mz),
-                Rotate = new Vector3((float)rx, (float)ry, (float)rz),
-                CameraType = type,
-                Type = RawEventType.Camera,
-                Line = evt.LineNumber
-            };
-        }
-
-        protected virtual RawInclude ParseInclude(AntlrEvent evt)
-        {
-            var validator = new ChartReaderValidator(evt, RawEventType.Include);
-
-            validator.Require(evt.Values.Count == 1);
-            validator.Require(evt.Values[0].Type == AntlrValueType.String);
-
-            return new RawInclude
-            {
-                File = evt.Values[0].GetStringValue()
-            };
-        }
-
-        protected virtual RawFragment ParseFragment(AntlrEvent evt)
-        {
-            var validator = new ChartReaderValidator(evt, RawEventType.Fragment);
-
-            validator.Require(evt.Values.Count == 2);
-            validator.Require(evt.Values[0].Type == AntlrValueType.Algebraic);
-            validator.Require(evt.Values[1].Type == AntlrValueType.String);
-
-            return new RawFragment
-            {
-                Timing = (int)evt.Values[0].GetAlgebraicValue(),
-                File = evt.Values[0].GetStringValue()
-            };
-        }
-
-        private Result<ChartFileErrors> AddInclude(RawInclude include)
-        {
-            AllIncludes.Add(SwitchFileName(FullPath, include.File));
-
-            ChartReader extReader = ChartReaderFactory.GetReader(FileAccess, FullPath, include.File);
-            extReader.BlockReferences(AllIncludes, AllFragments);
-            Result<ChartFileErrors> parseResult = extReader.Parse();
-            if (parseResult.IsError)
-            {
-                return parseResult.Error;
-            }
-
-            foreach (RawTimingGroup group in extReader.TimingGroups)
-            {
-                group.Editable = true;
-                group.File = Path.Combine(RelativeDirectory, group.File);
-            }
-
-            References.Add(extReader);
-            return Result<ChartFileErrors>.Ok();
-        }
-
-        private Result<ChartFileErrors> AddFragment(RawFragment fragment, int timingGroup)
-        {
-            AllFragments.Add(SwitchFileName(FullPath, fragment.File));
-
-            ChartReader extReader = ChartReaderFactory.GetReader(FileAccess, FullPath, fragment.File);
-            extReader.BlockReferences(AllIncludes, AllFragments);
-            Result<ChartFileErrors> parseResult = extReader.Parse();
-            if (parseResult.IsError)
-            {
-                return parseResult.Error;
-            }
-
-            foreach (RawTimingGroup group in extReader.TimingGroups)
-            {
-                group.Editable = false;
-                group.File = Path.Combine(RelativeDirectory, group.File);
-            }
-
-            foreach (RawEvent e in extReader.Events)
-            {
-                if (!(e is RawTiming && e.Timing == 0))
-                {
-                    e.Timing += fragment.Timing;
-                }
-
-                if (e is RawHold)
-                {
-                    (e as RawHold).EndTiming += fragment.Timing;
-                }
-
-                if (e is RawArc)
-                {
-                    (e as RawArc).EndTiming += fragment.Timing;
-                }
-            }
-
-            References.Add(extReader);
-            return Result<ChartFileErrors>.Ok();
-        }
-
-        private string SwitchFileName(string currentPath, string target)
-        {
-            string dir = Path.GetDirectoryName(currentPath);
-            return Path.Combine(dir, target);
         }
     }
 }

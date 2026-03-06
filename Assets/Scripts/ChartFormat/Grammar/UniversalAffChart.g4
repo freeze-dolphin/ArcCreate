@@ -120,7 +120,17 @@ String
     ;
 
 Word
-    : (SHARP | UNDERLINE | ALPHABET) (SHARP | UNDERLINE | ALPHABET | DIGIT | DOT | SLASH | BSLASH)*
+    : (SHARP | UNDERLINE | ALPHABET) (
+        SHARP
+        | UNDERLINE
+        | ALPHABET
+        | DIGIT
+        | DOT
+        | SLASH
+        | BSLASH
+        | NEGATIVE
+        | SPACE
+    )*
     ;
 
 Int

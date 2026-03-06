@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using ArcCreate.ChartFormat.Grammar;
 
@@ -14,13 +15,13 @@ namespace ArcCreate.ChartFormat
         /// <param name="relativeDirectory">The directory relative to the base directory of the chart file.
         /// Should be an empty string for the base chart file.</param>
         /// <param name="fullPath">The absolute path to the chart file.</param>
-        /// <param name="filename">The file name of the chart file, should be the same as written in include or fragment aff command.</param>
-        public ChartReader(IFileAccessWrapper fileAccess, string relativeDirectory, string fullPath, string filename)
+        /// <param name="fileName">The file name of the chart file, should be the same as written in include or fragment aff command.</param>
+        public ChartReader(IFileAccessWrapper fileAccess, string relativeDirectory, string fullPath, string fileName)
         {
             FileAccess = fileAccess;
             RelativeDirectory = relativeDirectory;
             FullPath = fullPath;
-            Filename = filename;
+            FileName = fileName;
         }
 
         // Output
@@ -36,7 +37,7 @@ namespace ArcCreate.ChartFormat
 
         protected string FullPath { get; set; }
 
-        protected string Filename { get; set; }
+        protected string FileName { get; set; }
 
         protected IFileAccessWrapper FileAccess { get; set; }
 
@@ -47,7 +48,7 @@ namespace ArcCreate.ChartFormat
         protected List<ChartReader> References { get; } = new List<ChartReader>();
 
         /// <summary>
-        /// Start parsing with the provided <see cref="FullPath"/> and <see cref="Filename"/>.
+        /// Start parsing with the provided <see cref="FullPath"/> and <see cref="FileName"/>.
         /// </summary>
         /// <returns>Result containing any errors found within the chart file.</returns>
         public abstract Result<ChartFileErrors> Parse();
@@ -126,5 +127,11 @@ namespace ArcCreate.ChartFormat
         public abstract RawTimingGroup ParseTimingGroupProperties(string raw, AntlrEvent evt);
 
         public abstract RawEvent ParseEvent(AntlrEvent evt, int timingGroup);
+
+        protected virtual string SwitchFileName(string currentPath, string target)
+        {
+            string dir = Path.GetDirectoryName(currentPath);
+            return Path.Combine(dir, target);
+        }
     }
 }

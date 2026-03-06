@@ -209,12 +209,12 @@ namespace ArcCreate.ChartFormat
 
             if (!Mathf.Approximately(arc.ArcResolution, 1))
             {
-                serialized += $"{RawArc.ArcResolutionKey}: {arc.ArcResolution:f2}";
+                serialized += $"{RawArc.PropertyArcResolutionKey}: {arc.ArcResolution:f2}";
             }
 
             if (arc.TryGetStainedColor(out var arcStainedColor))
             {
-                serialized += $"{RawArc.StainedColorKey}: {arcStainedColor}";
+                serialized += $"{RawArc.PropertyStainedColorKey}: {arcStainedColor}";
             }
 
             return serialized.Length > 0 ? $"< {serialized} >" : serialized;

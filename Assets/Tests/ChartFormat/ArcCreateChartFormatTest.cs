@@ -1,15 +1,13 @@
-using System.Collections.Generic;
 using System.Linq;
-using Antlr4.Runtime;
 using ArcCreate.ChartFormat;
 using ArcCreate.ChartFormat.Grammar;
-using JetBrains.Annotations;
 using NSubstitute;
 using NUnit.Framework;
+using static Tests.Unit.ChartFormatTestUtils;
 
 namespace Tests.Unit
 {
-    public class AffChartLineReaderTest
+    public class ArcCreateChartFormatTest
     {
         private ArcCreateChartReader reader;
 
@@ -17,18 +15,6 @@ namespace Tests.Unit
         public void SetUpFixture()
         {
             reader = new ArcCreateChartReader(Substitute.For<IFileAccessWrapper>(), "", "2.acf", "2.acf");
-        }
-
-        private static List<AntlrEvent> ParseEvents(string raw)
-        {
-            var antlrInput = new AntlrInputStream(raw);
-            var lexer = new UniversalAffChartLexer(antlrInput);
-            var tokens = new CommonTokenStream(lexer);
-            var parser = new UniversalAffChartParser(tokens);
-            var visitor = new UniversalChartVisitor();
-
-            var segment = visitor.VisitChartTyped(parser.chart());
-            return segment.Events.ToList();
         }
 
         [TestCase(0, 100, 4)]
@@ -58,7 +44,7 @@ namespace Tests.Unit
         [TestCase(1000, 4)]
         public void ParseTap(int timing, int lane)
         {
-            var evt = ParseEvents($"tap({timing},{lane});")[0];
+            var evt = ParseEvents($"({timing},{lane});")[0];
 
             RawTap e = reader.ParseTap(evt, 0);
             Assert.That(e.Timing, Is.EqualTo(timing));
@@ -117,6 +103,17 @@ namespace Tests.Unit
             Assert.That(e.Color, Is.EqualTo(color));
             Assert.That(e.IsTrace, Is.EqualTo(isTrace));
             Assert.That(e.Sfx, Is.EqualTo(sfx));
+        }
+
+        [TestCase("arc(0,1,0,0,b,1,1,0,true,none,2);")]
+        [TestCase("arc(0,1,0,0,b,1,1,0,true,none)< resolution: 2 >;")]
+        public void ParseArcResolution(string raw)
+        {
+            var evt = ParseEvents(raw)[0];
+
+            RawArc e = reader.ParseArc(evt, 0);
+
+            Assert.That(e.ArcResolution, Is.EqualTo(2));
         }
 
         [TestCase(1000, 0, 0, 0, 1, 1, "b", 0, true, "none")]
@@ -280,8 +277,8 @@ namespace Tests.Unit
         }
 
         [TestCase("test.aff")]
-        // [TestCase("with space.aff")] // this will fail
-        [TestCase("\"with space.aff\"")] // use quoted instead
+        [TestCase("with space.aff")] // this will work now
+        [TestCase("\"with space.aff\"")] // better to use quoted instead
         [TestCase("'with space.aff'")] // single quotes works as well
         [TestCase("dir/file.aff")]
         public void ParseInclude(string path)
@@ -294,8 +291,8 @@ namespace Tests.Unit
         }
 
         [TestCase("test.aff")]
-        // [TestCase("with space.aff")] // this will fail
-        [TestCase("\"with space.aff\"")] // use quoted instead
+        [TestCase("with space.aff")] // this will work now
+        [TestCase("\"with space.aff\"")] // better to use quoted instead
         [TestCase("'with space.aff'")] // single quotes works as well
         [TestCase("dir/file.aff")]
         public void ParseFragment(string path)
@@ -311,24 +308,13 @@ namespace Tests.Unit
         [TestCase(1000, "`randint(1, 4)`")]
         public void Random(int timing, string lane)
         {
+            Assert.Fail("NotImplemented");
+
             var evt = ParseEvents($"tap({timing},{lane});")[0];
 
             RawTap e = reader.ParseTap(evt, 0);
             Assert.That(e.Timing, Is.EqualTo(timing));
             Assert.That(e.Lane, Is.EqualTo(lane));
-        }
-
-        private void AssertChartReaderError([InstantHandle] TestDelegate code, ChartError.Kind kind)
-        {
-            try
-            {
-                code.Invoke();
-                Assert.Fail();
-            }
-            catch (ChartReaderException e)
-            {
-                Assert.That(e.ErrorKind, Is.EqualTo(kind));
-            }
         }
     }
 }

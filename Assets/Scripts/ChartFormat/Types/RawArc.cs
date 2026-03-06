@@ -29,31 +29,36 @@ namespace ArcCreate.ChartFormat
 
         #region Property
 
-        public const string ArcResolutionKey = "resolution";
+        public const string PropertyArcResolutionKey = "resolution";
 
         public float ArcResolution
         {
-            get => !Evaluator.TryInt(Properties.GetValueOrDefault(ArcResolutionKey, null), out int resolution)
+            get => !Evaluator.TryInt(Properties.GetValueOrDefault(PropertyArcResolutionKey, null), out int resolution)
                 ? 1
                 : resolution;
-            set => Properties[ArcResolutionKey] = value.ToString(CultureInfo.InvariantCulture);
+            set => Properties[PropertyArcResolutionKey] = value.ToString(CultureInfo.InvariantCulture);
         }
 
-        public const string StainedColorKey = "stained";
-        public static Color32 DesignantColor = new Color32(240, 41, 97, byte.MaxValue);
+        public const string PropertyStainedColorKey = "stained";
 
         public Color? StainedColor
         {
-            get => !ColorUtility.TryParseHtmlString(Properties.GetValueOrDefault(StainedColorKey, null), out var color)
-                ? null
-                : color;
-            set => Properties[StainedColorKey] = value.HasValue ? ColorUtility.ToHtmlStringRGB(value.Value) : null;
+            get =>
+                ColorUtility.TryParseHtmlString(
+                    "#" + Properties.GetValueOrDefault(PropertyStainedColorKey, null).TrimStart('#'),
+                    out var color
+                )
+                    ? color
+                    : null;
+            set => Properties[PropertyStainedColorKey] = value.HasValue
+                ? "#" + ColorUtility.ToHtmlStringRGB(value.Value)
+                : null;
         }
 
         public bool TryGetStainedColor(out Color color)
         {
             var c = StainedColor;
-            color = c.HasValue ? c.Value : UnityEngine.Color.black;
+            color = c ?? UnityEngine.Color.black;
 
             return c.HasValue;
         }
