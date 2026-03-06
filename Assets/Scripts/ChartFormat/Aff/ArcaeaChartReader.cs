@@ -168,6 +168,11 @@ namespace ArcCreate.ChartFormat
 
         public override RawTimingGroup ParseTimingGroupProperties(string raw, AntlrEvent evt)
         {
+            var validator = new ChartReaderValidator(evt, RawEventType.TimingGroup);
+
+            // tg properties are connected using '_' in Arcaea
+            validator.Require(evt.Values.Count is 0 or 1);
+            
             var propDict = new Dictionary<string, string>();
 
             if (!string.IsNullOrWhiteSpace(raw))
@@ -182,16 +187,16 @@ namespace ArcCreate.ChartFormat
                     else
                     {
                         var (key, aValue) = antlrValue.GetKeyValuePair();
-                        if (aValue.HasKeyValuePair)
+                        if (aValue.IsKeyValuePair)
                         {
                             propDict.Add(key, aValue.GetStringValue());
                         }
-                        else if (aValue.HasAlgebraicValue)
+                        else if (aValue.IsAlgebraicValue)
                         {
                             propDict.Add(key, aValue.GetAlgebraicValue().ToString(CultureInfo.InvariantCulture));
                         }
 
-                        throw new AntlrParseException("Recursive key-value pair is not allowed", evt.Raw,
+                        throw new AntlrParseException("Nested key-value pair is not allowed", evt.Raw,
                             RawEventType.AntlrValue, evt.LineNumber, evt.ColumnNumber);
                     }
                 }
@@ -212,70 +217,11 @@ namespace ArcCreate.ChartFormat
                             break;
                         case "anglex":
                             valid = Evaluator.TryFloat(value, out val);
-                            prop.AngleX = valid ? val : 0;
+                            prop.AngleX = valid ? val / 10 : 0;
                             break;
                         case "angley":
                             valid = Evaluator.TryFloat(value, out val);
-                            prop.AngleY = valid ? val : 0;
-                            break;
-                        case "judgesizex":
-                            valid = Evaluator.TryFloat(value, out val);
-                            prop.JudgementSizeX = valid ? val : 1;
-                            break;
-                        case "judgesizey":
-                            valid = Evaluator.TryFloat(value, out val);
-                            prop.JudgementSizeY = valid ? val : 1;
-                            break;
-                        case "judgeoffsetx":
-                            valid = Evaluator.TryFloat(value, out val);
-                            prop.JudgementOffsetX = valid ? val : 1;
-                            break;
-                        case "judgeoffsety":
-                            valid = Evaluator.TryFloat(value, out val);
-                            prop.JudgementOffsetY = valid ? val : 1;
-                            break;
-                        case "judgeoffsetz":
-                            valid = Evaluator.TryFloat(value, out val);
-                            prop.JudgementOffsetZ = valid ? val : 1;
-                            break;
-                        case "arcresolution":
-                            valid = Evaluator.TryFloat(value, out val);
-                            val = Mathf.Clamp(val, 0.1f, 10);
-                            prop.ArcResolution = valid ? val : 1;
-                            break;
-                        case "droprate":
-                            valid = Evaluator.TryFloat(value, out val);
-                            prop.DropRate = valid ? val : 0;
-                            break;
-                        case "max":
-                            prop.AddRemapRules(value, JudgementMap.Max);
-                            break;
-                        case "perfect":
-                            prop.AddRemapRules(value, JudgementMap.PerfectEarly, JudgementMap.PerfectLate);
-                            break;
-                        case "perfectearly":
-                            prop.AddRemapRules(value, JudgementMap.PerfectEarly);
-                            break;
-                        case "perfectlate":
-                            prop.AddRemapRules(value, JudgementMap.PerfectLate);
-                            break;
-                        case "good":
-                            prop.AddRemapRules(value, JudgementMap.GoodEarly, JudgementMap.GoodLate);
-                            break;
-                        case "goodearly":
-                            prop.AddRemapRules(value, JudgementMap.GoodEarly);
-                            break;
-                        case "goodlate":
-                            prop.AddRemapRules(value, JudgementMap.GoodLate);
-                            break;
-                        case "miss":
-                            prop.AddRemapRules(value, JudgementMap.MissEarly, JudgementMap.MissLate);
-                            break;
-                        case "missearly":
-                            prop.AddRemapRules(value, JudgementMap.MissEarly);
-                            break;
-                        case "misslate":
-                            prop.AddRemapRules(value, JudgementMap.MissLate);
+                            prop.AngleY = valid ? val / 10 : 0;
                             break;
                         default:
                             throw new ChartReaderException(raw, RawEventType.TimingGroup, evt,

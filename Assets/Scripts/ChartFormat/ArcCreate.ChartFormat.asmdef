@@ -1,5 +1,6 @@
 {
     "name": "ArcCreate.ChartFormat",
+    "rootNamespace": "",
     "references": [
         "GUID:01ac7ee8347a8dc4ab295317e5a85380"
     ],
@@ -8,7 +9,8 @@
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
-      "Antlr4.Runtime.Standard.dll"
+        "Antlr4.Runtime.Standard.dll",
+        "Jace.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],

@@ -1,14 +1,32 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Antlr4.Runtime;
 using ArcCreate.Utility.Parser;
+using Jace;
+using Jace.Execution;
+using Random = UnityEngine.Random;
 
 namespace ArcCreate.ChartFormat.Grammar
 {
     public class UniversalChartVisitor : UniversalAffChartBaseVisitor<object>
     {
-        public AntlrEventSegment VisitChartTyped(UniversalAffChartParser.ChartContext context) => (AntlrEventSegment)VisitChart(context);
+        public UniversalChartVisitor()
+        {
+            ExprStringEngine.AddFunction("randint",
+                (min, max) => (int)Random.Range((float)min, (float)max));
+            ExprStringEngine.AddFunction("rand",
+                (min, max) => Random.Range((float)min, (float)max));
+        }
+
+        public static string TrimQuotes(string raw) =>
+            raw.Length >= 2 && (raw[0] == '\'' || raw[0] == '"') && raw[0] == raw[^1]
+                ? raw[1..^1]
+                : raw;
+
+        public AntlrEventSegment VisitChartTyped(UniversalAffChartParser.ChartContext context) =>
+            (AntlrEventSegment)VisitChart(context);
 
         /// <returns><see cref="AntlrEventSegment"/></returns>
         public override object VisitChart(UniversalAffChartParser.ChartContext context)
@@ -16,7 +34,13 @@ namespace ArcCreate.ChartFormat.Grammar
             return VisitBodyTyped(context.body());
         }
 
-        public AntlrValue VisitValueTyped(UniversalAffChartParser.ValueContext context) => (AntlrValue)VisitValue(context);
+        private static readonly CalculationEngine ExprStringEngine =
+            new(CultureInfo.CurrentCulture, ExecutionMode.Interpreted);
+
+        private readonly Dictionary<string, double> exprStringCalculationVariables = new();
+
+        public AntlrValue VisitValueTyped(UniversalAffChartParser.ValueContext context) =>
+            (AntlrValue)VisitValue(context);
 
         /// <returns><see cref="AntlrValue"/></returns>
         public override object VisitValue(UniversalAffChartParser.ValueContext context)
@@ -26,7 +50,7 @@ namespace ArcCreate.ChartFormat.Grammar
                 var raw = context.ExprString().GetText();
                 var content = raw.Trim('`');
 
-                if (!Evaluator.TryDouble(content, out double eval))
+                if (!Evaluator.TryFloat(content, out float eval, ExprStringEngine))
                 {
                     throw new AntlrParseException($"Unable to evaluate expression: {context.GetText()}",
                         context.GetText(), RawEventType.AntlrValue, context.Start);
@@ -42,7 +66,7 @@ namespace ArcCreate.ChartFormat.Grammar
 
                 if (value.Type == AntlrValueType.KeyValuePair)
                 {
-                    throw new AntlrParseException("Recursive key-value pair is not allowed", context.GetText(),
+                    throw new AntlrParseException("Nested key-value pair is not allowed", context.GetText(),
                         RawEventType.AntlrValue, context.Start);
                 }
 
@@ -76,11 +100,6 @@ namespace ArcCreate.ChartFormat.Grammar
 
             throw new AntlrParseException("Unknown value type", context.GetText(), RawEventType.AntlrValue,
                 context.Start);
-
-            string TrimQuotes(string raw) =>
-                raw.Length >= 2 && (raw[0] == '\'' || raw[0] == '"') && raw[0] == raw[^1]
-                    ? raw[1..^1]
-                    : raw;
         }
 
         public AntlrValue VisitExprTyped(UniversalAffChartParser.ExprContext context) => (AntlrValue)VisitExpr(context);
@@ -183,7 +202,8 @@ namespace ArcCreate.ChartFormat.Grammar
             }
         }
 
-        public List<AntlrValue> VisitValuesTyped(UniversalAffChartParser.ValuesContext context) => (List<AntlrValue>)VisitValues(context);
+        public List<AntlrValue> VisitValuesTyped(UniversalAffChartParser.ValuesContext context) =>
+            (List<AntlrValue>)VisitValues(context);
 
         /// <returns><see cref="List{AntlrValue}"/></returns>
         public override object VisitValues(UniversalAffChartParser.ValuesContext context)
@@ -191,7 +211,8 @@ namespace ArcCreate.ChartFormat.Grammar
             return context.value().Select(VisitValueTyped).ToList();
         }
 
-        public AntlrEvent VisitEventTyped(UniversalAffChartParser.EventContext context) => (AntlrEvent)VisitEvent(context);
+        public AntlrEvent VisitEventTyped(UniversalAffChartParser.EventContext context) =>
+            (AntlrEvent)VisitEvent(context);
 
         /// <returns><see cref="AntlrEvent"/></returns>
         public override object VisitEvent(UniversalAffChartParser.EventContext context)
@@ -238,7 +259,8 @@ namespace ArcCreate.ChartFormat.Grammar
             return VisitEventTyped(context.@event());
         }
 
-        public AntlrValue VisitPropertyTyped(UniversalAffChartParser.PropertyContext context) => (AntlrValue)VisitProperty(context);
+        public AntlrValue VisitPropertyTyped(UniversalAffChartParser.PropertyContext context) =>
+            (AntlrValue)VisitProperty(context);
 
         /// <returns><see cref="AntlrValue"/></returns>
         public override object VisitProperty(UniversalAffChartParser.PropertyContext context)
@@ -285,7 +307,8 @@ namespace ArcCreate.ChartFormat.Grammar
             return VisitBodyTyped(context.body());
         }
 
-        public AntlrEventSegment VisitBodyTyped(UniversalAffChartParser.BodyContext context) => (AntlrEventSegment)VisitBody(context);
+        public AntlrEventSegment VisitBodyTyped(UniversalAffChartParser.BodyContext context) =>
+            (AntlrEventSegment)VisitBody(context);
 
         /// <returns><see cref="AntlrEventSegment"/></returns>
         public override object VisitBody(UniversalAffChartParser.BodyContext context)

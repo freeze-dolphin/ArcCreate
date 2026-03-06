@@ -39,6 +39,7 @@ namespace ArcCreate.ChartFormat
 
             Raw = raw;
             EventType = type;
+            ErrorKind = errorKind;
         }
 
         public ChartReaderException(string raw, RawEventType type, AntlrEvent evt, ChartError.Kind errorKind) : this(raw, type,
