@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace ArcCreate.ChartFormat
 {
-    public class ParsingFormula
+    public static class ParsingFormula
     {
         /// <summary>
         /// Convert ArcCreate floated lane into Arcaea scale
@@ -11,7 +11,7 @@ namespace ArcCreate.ChartFormat
         /// </summary>
         /// <param name="lane">Lane number in ArcCreate scale</param>
         /// <returns>Lane number in Arcaea scale.</returns>
-        public static float LaneToArcaeaFloatedLane(float lane)
+        public static double LaneToArcaeaFloatedLane(double lane)
         {
             /*
             var worldX = (-Values.LaneWidth * lane) + (Values.LaneWidth * 2.5f);
@@ -24,9 +24,9 @@ namespace ArcCreate.ChartFormat
             return lane / 4 - 0.125f;
         }
 
-        public static float ArcaeaFloatedLaneToLane(float arcFloatedLane)
+        public static double ArcaeaFloatedLaneToLane(double arcFloatedLane)
         {
-            return arcFloatedLane + 0.125f * 4;
+            return arcFloatedLane + 0.125 * 4;
         }
 
         public static bool IsFloatedLane(float lane, float epsilon = 0.001f)

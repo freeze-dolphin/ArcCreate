@@ -21,10 +21,10 @@ namespace ArcCreate.ChartFormat
         /// <param name="fileAccess">File access wrapper. You should normally use <see cref="PhysicalFileAccess"/>.</param>
         /// <param name="relativeDirectory">The directory relative to the base folder.</param>
         /// <param name="fullPath">The absolute path leading to the file.</param>
-        /// <param name="filename">The file name. Passed as-is from include and fragment aff commands.</param>
+        /// <param name="fileName">The file name. Passed as-is from include and fragment aff commands.</param>
         public ArcCreateChartReader(IFileAccessWrapper fileAccess, string relativeDirectory, string fullPath,
-            string filename)
-            : base(fileAccess, relativeDirectory, fullPath, filename)
+            string fileName)
+            : base(fileAccess, relativeDirectory, fullPath, fileName)
         {
             TimingPointDensity = 1;
             AudioOffset = 0;
@@ -34,14 +34,14 @@ namespace ArcCreate.ChartFormat
         {
             var errors = new List<ChartError>();
 
-            TimingGroups.Add(new RawTimingGroup() { File = Filename });
-            AllIncludes.Add(Filename);
+            TimingGroups.Add(new RawTimingGroup { File = FileName });
+            AllIncludes.Add(FileName);
 
             var lines = FileAccess.ReadFileByLines(FullPath);
             if (!lines.HasValue)
             {
                 errors.Add(ChartError.Format(RawEventType.Unknown, ChartError.Kind.FileDoesNotExist));
-                return new ChartFileErrors(Filename, errors);
+                return new ChartFileErrors(FileName, errors);
             }
 
             #region Header
@@ -49,7 +49,7 @@ namespace ArcCreate.ChartFormat
             if (!ParseHeader(lines.Value).TryUnwrap(out var headerParseResult, out var error))
             {
                 errors.Add(error);
-                return new ChartFileErrors(Filename, errors);
+                return new ChartFileErrors(FileName, errors);
             }
 
             var (headerLineNumber, headerDict) = headerParseResult;
@@ -73,7 +73,7 @@ namespace ArcCreate.ChartFormat
 
             #endregion
 
-            var antlrInput = new AntlrInputStream(string.Join("\n", lines.Value.Skip(headerLineNumber)));
+            var antlrInput = new AntlrInputStream(string.Join("\n", lines.Value.Skip(headerLineNumber + 1)));
             var lexer = new UniversalAffChartLexer(antlrInput);
             var tokens = new CommonTokenStream(lexer);
             var parser = new UniversalAffChartParser(tokens);
@@ -100,6 +100,81 @@ namespace ArcCreate.ChartFormat
                         Events.Add(ParseEvent(evt, 0));
                     }
                 }
+
+                foreach (var rawEvent in Events)
+                {
+                    switch (rawEvent)
+                    {
+                        case RawInclude rawInclude:
+                        {
+                            string fullInclPath = SwitchFileName(FullPath, rawInclude.File);
+
+                            if (AllIncludes.Contains(fullInclPath))
+                            {
+                                errors.Add(ChartError.Property(
+                                    lines.Value[rawInclude.Line],
+                                    rawInclude.Line,
+                                    RawEventType.Include,
+                                    0,
+                                    lines.Value[rawInclude.Line].Length,
+                                    ChartError.Kind.IncludeReferencedMultipleTimes));
+
+                                break;
+                            }
+
+                            if (AllFragments.Contains(fullInclPath))
+                            {
+                                errors.Add(ChartError.Property(
+                                    lines.Value[rawInclude.Line],
+                                    rawInclude.Line,
+                                    RawEventType.Fragment,
+                                    0,
+                                    lines.Value[rawInclude.Line].Length,
+                                    ChartError.Kind.IncludeAReferencedFragment));
+
+                                break;
+                            }
+
+                            var includeResult = AddInclude(rawInclude);
+                            if (includeResult.IsError)
+                            {
+                                errors.Add(ChartError.ReferencedFile(
+                                    lines.Value[rawInclude.Line],
+                                    rawInclude.Line,
+                                    RawEventType.Include,
+                                    includeResult.Error));
+                            }
+
+                            break;
+                        }
+                        case RawFragment rawFragment:
+                        {
+                            string fullFragPath = SwitchFileName(FullPath, rawFragment.File);
+
+                            if (AllIncludes.Contains(fullFragPath))
+                            {
+                                errors.Add(ChartError.Property(
+                                    lines.Value[rawFragment.Line],
+                                    rawFragment.Line,
+                                    RawEventType.Include,
+                                    0,
+                                    lines.Value[rawFragment.Line].Length,
+                                    ChartError.Kind.IncludeReferencedMultipleTimes));
+
+                                break;
+                            }
+
+                            var fragmentResult = AddFragment(rawFragment);
+                            if (fragmentResult.IsError)
+                            {
+                                errors.Add(ChartError.ReferencedFile(lines.Value[rawFragment.Line],
+                                    rawFragment.Line, RawEventType.Fragment, fragmentResult.Error));
+                            }
+
+                            break;
+                        }
+                    }
+                }
             }
             catch (AntlrParseException ex)
             {
@@ -109,7 +184,7 @@ namespace ArcCreate.ChartFormat
             catch (ChartReaderException ex)
             {
                 errors.Add(ChartError.Property(ex.Raw, ex.LineNumber, ex.EventType, 0, ex.Raw.Length,
-                    ChartError.Kind.Parsing));
+                    ex.ErrorKind));
             }
 
             foreach (ChartReader reference in References)
@@ -145,7 +220,7 @@ namespace ArcCreate.ChartFormat
             Events.Sort((a, b) => a.Timing.CompareTo(b.Timing));
 
             return errors.Count > 0
-                ? new ChartFileErrors(Filename, errors)
+                ? new ChartFileErrors(FileName, errors)
                 : Result<ChartFileErrors>.Ok();
         }
 
@@ -197,6 +272,10 @@ namespace ArcCreate.ChartFormat
                         {
                             propDict.Add(key, aValue.GetStringValue());
                         }
+                        else if (aValue.IsIntegerValue)
+                        {
+                            propDict.Add(key, aValue.GetIntegerValue().ToString());
+                        }
                         else if (aValue.IsAlgebraicValue)
                         {
                             propDict.Add(key, aValue.GetAlgebraicValue().ToString(CultureInfo.InvariantCulture));
@@ -215,7 +294,10 @@ namespace ArcCreate.ChartFormat
                 }
             }
 
-            var prop = new RawTimingGroup();
+            var prop = new RawTimingGroup
+            {
+                File = FileName
+            };
 
             foreach (var (type, value) in propDict)
             {
@@ -352,7 +434,7 @@ namespace ArcCreate.ChartFormat
 
         public override RawEvent ParseEvent(AntlrEvent evt, int timingGroup) => evt.Name switch
         {
-            null or "" => ParseTap(evt, timingGroup),
+            null or "" or "tap" => ParseTap(evt, timingGroup),
             "hold" => ParseHold(evt, timingGroup),
             "timing" => ParseTiming(evt, timingGroup),
             "arc" => ParseArc(evt, timingGroup),
@@ -369,12 +451,12 @@ namespace ArcCreate.ChartFormat
             var validator = new ChartReaderValidator(evt, RawEventType.Tap);
 
             validator.Require(evt.Values.Count == 2);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
             validator.Require(evt.Values[1].TryGetAlgebraicValue(out var lane));
 
             return new RawTap
             {
-                Timing = (int)tick,
+                Timing = tick,
                 Lane = (float)lane,
                 Type = RawEventType.Tap,
                 TimingGroup = timingGroup,
@@ -387,11 +469,11 @@ namespace ArcCreate.ChartFormat
             var validator = new ChartReaderValidator(evt, RawEventType.Hold);
 
             validator.Require(evt.Values.Count == 3);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
-            validator.Require(evt.Values[1].TryGetAlgebraicValue(out var endTick));
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
+            validator.Require(evt.Values[1].TryGetIntegerValue(out var endTick));
             validator.Require(evt.Values[2].TryGetAlgebraicValue(out var track));
 
-            if (Mathf.Approximately((float)endTick, (float)tick))
+            if (endTick == tick)
                 throw new ChartReaderException(evt.Raw, RawEventType.Hold, evt, ChartError.Kind.DurationZero);
 
             if (endTick < tick)
@@ -399,8 +481,8 @@ namespace ArcCreate.ChartFormat
 
             return new RawHold
             {
-                Timing = (int)tick,
-                EndTiming = (int)endTick,
+                Timing = tick,
+                EndTiming = endTick,
                 Lane = (float)track,
                 Type = RawEventType.Hold,
                 TimingGroup = timingGroup,
@@ -413,14 +495,14 @@ namespace ArcCreate.ChartFormat
             var validator = new ChartReaderValidator(evt, RawEventType.Timing);
 
             validator.Require(evt.Values.Count == 3);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
             validator.Require(evt.Values[1].TryGetAlgebraicValue(out var bpm));
             validator.Require(evt.Values[2].TryGetAlgebraicValue(out var divisor) && divisor >= 0,
                 ChartError.Kind.DivisorNegative);
 
             return new RawTiming
             {
-                Timing = (int)tick,
+                Timing = tick,
                 Divisor = (float)divisor,
                 Bpm = (float)bpm,
                 Type = RawEventType.Timing,
@@ -434,14 +516,14 @@ namespace ArcCreate.ChartFormat
             var validator = new ChartReaderValidator(evt, RawEventType.Arc);
 
             validator.Require(evt.Values.Count is >= 10 and <= 11);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
-            validator.Require(evt.Values[1].TryGetAlgebraicValue(out var endTick));
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
+            validator.Require(evt.Values[1].TryGetIntegerValue(out var endTick));
             validator.Require(evt.Values[2].TryGetAlgebraicValue(out var xStart));
             validator.Require(evt.Values[3].TryGetAlgebraicValue(out var xEnd));
             validator.Require(evt.Values[4].TryGetStringValue(out var lineType));
             validator.Require(evt.Values[5].TryGetAlgebraicValue(out var yStart));
             validator.Require(evt.Values[6].TryGetAlgebraicValue(out var yEnd));
-            validator.Require(evt.Values[7].TryGetAlgebraicValue(out var color) && color >= 0,
+            validator.Require(evt.Values[7].TryGetIntegerValue(out var color) && color >= 0,
                 ChartError.Kind.ArcColorNegative);
             validator.Require(evt.Values[8].TryGetStringValue(out var hitSound));
             validator.Require(evt.Values[9].TryGetStringValue(out var arcType));
@@ -450,35 +532,47 @@ namespace ArcCreate.ChartFormat
                 throw new ChartReaderException(evt.Raw, RawEventType.Arc, evt, ChartError.Kind.DurationNegative);
 
             double arcResolution = 1.0;
-            if (evt.Properties.TryGetValue(RawArc.ArcResolutionKey, out var arcResolutionRaw) &&
-                arcResolutionRaw.TryGetAlgebraicValue(out arcResolution)) // try get arcResolution from properties first
-            {
-            }
-            else
+            if (!(evt.Properties.TryGetValue(RawArc.PropertyArcResolutionKey, out var arcResolutionRaw) &&
+
+                  // try get arcResolution from properties first
+                  arcResolutionRaw.TryGetAlgebraicValue(out arcResolution)) &&
+                evt.Values.Count >= 11)
             {
                 // if not presented in properties, try parse from Arc parameters
-                if (evt.Values.Count >= 11) evt.Values[10].TryGetAlgebraicValue(out arcResolution);
+                evt.Values[10].TryGetAlgebraicValue(out arcResolution);
             }
+
+            Color stainedColor = Color.black;
+            bool hasStainedColor = evt.Properties.TryGetValue(RawArc.PropertyStainedColorKey, out var stainedColorRaw) &&
+                                   stainedColorRaw.TryGetStringValue(out string stainedColorStr) &&
+                                   ColorUtility.TryParseHtmlString(stainedColorStr, out stainedColor);
 
             var isTrace = arcType is "true" or "designant";
 
-            return new RawArc
+            var arc = new RawArc
             {
-                Timing = (int)tick,
-                EndTiming = (int)endTick,
+                Timing = tick,
+                EndTiming = endTick,
                 XStart = (float)xStart,
                 XEnd = (float)xEnd,
                 LineType = lineType,
                 YStart = (float)yStart,
                 YEnd = (float)yEnd,
-                Color = (int)color,
+                Color = color,
                 IsTrace = isTrace,
-                ArcTaps = evt.SubEvents.Select(x => ParseArcTap(x, timingGroup, (int)tick, (int)endTick)).ToList(),
+                ArcTaps = evt.SubEvents.Select(x => ParseArcTap(x, timingGroup, tick, endTick)).ToList(),
                 Sfx = hitSound,
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber,
                 ArcResolution = (float)arcResolution
             };
+
+            if (hasStainedColor)
+            {
+                arc.StainedColor = stainedColor;
+            }
+
+            return arc;
         }
 
         protected virtual RawArcTap ParseArcTap(AntlrEvent evt, int timingGroup, int parentTick, int parentEndTick)
@@ -490,7 +584,7 @@ namespace ArcCreate.ChartFormat
 
             var validator = new ChartReaderValidator(evt, RawEventType.ArcTap);
             validator.Require(evt.Values.Count is 1 or 2);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
 
             if (tick < parentTick || tick > parentEndTick)
             {
@@ -503,7 +597,7 @@ namespace ArcCreate.ChartFormat
             return new RawArcTap
             {
                 Type = RawEventType.ArcTap,
-                Timing = (int)tick,
+                Timing = tick,
                 TimingGroup = timingGroup,
                 Width = (float)width,
                 Line = evt.LineNumber,
@@ -514,69 +608,39 @@ namespace ArcCreate.ChartFormat
 
         public virtual RawSceneControl ParseSceneControl(AntlrEvent evt, int timingGroup)
         {
-            const string trackDisplay = "trackdisplay";
-
             var validator = new ChartReaderValidator(evt, RawEventType.SceneControl);
 
             validator.Require(evt.Values.Count >= 2);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
             validator.Require(evt.Values[1].TryGetStringValue(out var type));
 
             // parameter-less
             if (evt.Values.Count == 2)
-                return type.ToLower() switch
+            {
+                return new RawSceneControl
                 {
-                    // https://github.com/freeze-dolphin/aff-compose/blob/17d0948c3f3726336661df4b68b0e5e2a86e3ef6/src/commonMain/kotlin/com/tairitsu/compose/filter/ShimFilter.kt#L29
-                    "trackhide" => new RawSceneControl
-                    {
-                        Timing = (int)tick,
-                        Type = RawEventType.SceneControl,
-                        Arguments = new List<object>
-                        {
-                            1000,
-                            0
-                        },
-                        SceneControlTypeName = trackDisplay,
-                        TimingGroup = timingGroup,
-                        Line = evt.LineNumber
-                    },
-
-                    // https://github.com/freeze-dolphin/aff-compose/blob/17d0948c3f3726336661df4b68b0e5e2a86e3ef6/src/commonMain/kotlin/com/tairitsu/compose/filter/ShimFilter.kt#L30
-                    "trackshow" => new RawSceneControl
-                    {
-                        Timing = (int)tick,
-                        Type = RawEventType.SceneControl,
-                        Arguments = new List<object>
-                        {
-                            1000,
-                            255
-                        },
-                        SceneControlTypeName = trackDisplay,
-                        TimingGroup = timingGroup,
-                        Line = evt.LineNumber
-                    },
-
-                    _ => new RawSceneControl
-                    {
-                        Timing = (int)tick,
-                        Type = RawEventType.SceneControl,
-                        Arguments = new List<object>(),
-                        SceneControlTypeName = type,
-                        TimingGroup = timingGroup,
-                        Line = evt.LineNumber
-                    }
+                    Timing = tick,
+                    Type = RawEventType.SceneControl,
+                    Arguments = new List<object>(),
+                    SceneControlTypeName = type,
+                    TimingGroup = timingGroup,
+                    Line = evt.LineNumber
                 };
+            }
 
             // cast types
             var param = evt.Values.GetRange(2, evt.Values.Count - 2);
-            validator.Require(param.All(x => x.Type is AntlrValueType.String or AntlrValueType.Algebraic));
+            validator.Require(param.All(x =>
+                x.Type is AntlrValueType.String or AntlrValueType.Algebraic or AntlrValueType.Integer));
 
             var typedParam = param.Select(x =>
             {
                 return x.Type switch
                 {
                     AntlrValueType.String => x.GetStringValue(),
+                    AntlrValueType.Integer => x.GetIntegerValue(),
                     AntlrValueType.Algebraic => (object)x.GetAlgebraicValue(),
+
                     _ => ChartError.Property(x.Raw,
                         evt.LineNumber,
                         RawEventType.SceneControl,
@@ -586,32 +650,14 @@ namespace ArcCreate.ChartFormat
                 };
             }).ToList();
 
-            return type.ToLower() switch
+            return new RawSceneControl
             {
-                // https://github.com/freeze-dolphin/aff-compose/blob/17d0948c3f3726336661df4b68b0e5e2a86e3ef6/src/commonMain/kotlin/com/tairitsu/compose/filter/ShimFilter.kt#L32-L36
-                trackDisplay => new RawSceneControl
-                {
-                    Timing = (int)tick,
-                    Type = RawEventType.SceneControl,
-                    Arguments = new List<object>
-                    {
-                        Mathf.RoundToInt((float)typedParam[0] * 1000),
-                        typedParam[1]
-                    },
-                    SceneControlTypeName = trackDisplay,
-                    TimingGroup = timingGroup,
-                    Line = evt.LineNumber
-                },
-
-                _ => new RawSceneControl
-                {
-                    Timing = (int)tick,
-                    Type = RawEventType.SceneControl,
-                    Arguments = typedParam,
-                    SceneControlTypeName = type,
-                    TimingGroup = timingGroup,
-                    Line = evt.LineNumber
-                }
+                Timing = tick,
+                Type = RawEventType.SceneControl,
+                Arguments = typedParam,
+                SceneControlTypeName = type,
+                TimingGroup = timingGroup,
+                Line = evt.LineNumber
             };
         }
 
@@ -620,7 +666,7 @@ namespace ArcCreate.ChartFormat
             var validator = new ChartReaderValidator(evt, RawEventType.Camera);
 
             validator.Require(evt.Values.Count == 9);
-            validator.Require(evt.Values[0].TryGetAlgebraicValue(out var tick));
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
             validator.Require(evt.Values[1].TryGetAlgebraicValue(out var mx));
             validator.Require(evt.Values[2].TryGetAlgebraicValue(out var my));
             validator.Require(evt.Values[3].TryGetAlgebraicValue(out var mz));
@@ -628,14 +674,14 @@ namespace ArcCreate.ChartFormat
             validator.Require(evt.Values[5].TryGetAlgebraicValue(out var ry));
             validator.Require(evt.Values[6].TryGetAlgebraicValue(out var rz));
             validator.Require(evt.Values[7].TryGetStringValue(out var type));
-            validator.Require(evt.Values[8].TryGetAlgebraicValue(out var duration) && duration >= 0,
+            validator.Require(evt.Values[8].TryGetIntegerValue(out var duration) && duration >= 0,
                 ChartError.Kind.DurationNegative);
 
             return new RawCamera
             {
                 TimingGroup = timingGroup,
-                Timing = (int)tick,
-                Duration = (int)duration,
+                Timing = tick,
+                Duration = duration,
                 Move = new Vector3((float)mx, (float)my, (float)mz),
                 Rotate = new Vector3((float)rx, (float)ry, (float)rz),
                 CameraType = type,
@@ -649,11 +695,11 @@ namespace ArcCreate.ChartFormat
             var validator = new ChartReaderValidator(evt, RawEventType.Include);
 
             validator.Require(evt.Values.Count == 1);
-            validator.Require(evt.Values[0].Type == AntlrValueType.String);
+            validator.Require(evt.Values[0].TryGetStringValue(out var file));
 
             return new RawInclude
             {
-                File = evt.Values[0].GetStringValue()
+                File = file
             };
         }
 
@@ -662,13 +708,13 @@ namespace ArcCreate.ChartFormat
             var validator = new ChartReaderValidator(evt, RawEventType.Fragment);
 
             validator.Require(evt.Values.Count == 2);
-            validator.Require(evt.Values[0].Type == AntlrValueType.Algebraic);
-            validator.Require(evt.Values[1].Type == AntlrValueType.String);
+            validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
+            validator.Require(evt.Values[1].TryGetStringValue(out var file));
 
             return new RawFragment
             {
-                Timing = (int)evt.Values[0].GetAlgebraicValue(),
-                File = evt.Values[1].GetStringValue()
+                Timing = tick,
+                File = file
             };
         }
 
@@ -694,7 +740,7 @@ namespace ArcCreate.ChartFormat
             return Result<ChartFileErrors>.Ok();
         }
 
-        private Result<ChartFileErrors> AddFragment(RawFragment fragment, int timingGroup)
+        private Result<ChartFileErrors> AddFragment(RawFragment fragment)
         {
             AllFragments.Add(SwitchFileName(FullPath, fragment.File));
 
@@ -732,12 +778,6 @@ namespace ArcCreate.ChartFormat
 
             References.Add(extReader);
             return Result<ChartFileErrors>.Ok();
-        }
-
-        private string SwitchFileName(string currentPath, string target)
-        {
-            string dir = Path.GetDirectoryName(currentPath);
-            return Path.Combine(dir, target);
         }
     }
 }

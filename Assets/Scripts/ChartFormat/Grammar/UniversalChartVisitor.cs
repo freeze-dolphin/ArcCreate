@@ -56,7 +56,7 @@ namespace ArcCreate.ChartFormat.Grammar
                         context.GetText(), RawEventType.AntlrValue, context.Start);
                 }
 
-                return new AntlrValue(raw, AntlrValueType.Algebraic, context.Start, algebraicValue: eval);
+                return AntlrValue.FromAlgebraic(raw, eval, context.Start.Line, context.Start.Column);
             }
 
             if (context.Word() != null && context.Equal() != null && context.value() != null)
@@ -70,21 +70,21 @@ namespace ArcCreate.ChartFormat.Grammar
                         RawEventType.AntlrValue, context.Start);
                 }
 
-                return new AntlrValue($"{key}={value.Raw}", AntlrValueType.KeyValuePair, context.Start,
-                    keyValuePair: new Tuple<string, AntlrValue>(key, value));
+                return AntlrValue.FromKeyValuePair($"{key}={value.Raw}", new Tuple<string, AntlrValue>(key, value),
+                    context.Start.Line, context.Start.Column);
             }
 
             if (context.String() != null)
             {
                 var raw = context.String().GetText();
                 var content = TrimQuotes(raw);
-                return new AntlrValue(raw, AntlrValueType.String, context.Start, stringValue: content);
+                return AntlrValue.FromString(raw, content, context.Start.Line, context.Start.Column);
             }
 
             if (context.Word() != null)
             {
                 var raw = context.Word().GetText();
-                return new AntlrValue(raw, AntlrValueType.String, context.Start, stringValue: raw);
+                return AntlrValue.FromString(raw, raw, context.Start.Line, context.Start.Column);
             }
 
             if (context.expr() != null)
@@ -121,8 +121,9 @@ namespace ArcCreate.ChartFormat.Grammar
             {
                 var child = VisitExprTyped(context.expr(0));
 
-                return new AntlrValue($"-{child.Raw}", AntlrValueType.Algebraic, context.Start, parentStart,
-                    algebraicValue: -child.GetAlgebraicValue());
+                return AntlrValue.FromAlgebraic($"-{child.Raw}", -child.GetAlgebraicValue(),
+                    context.Start.Line,
+                    context.Start.Column + parentStart.Column);
             }
 
             if (context.expr().Length == 2)
@@ -132,9 +133,9 @@ namespace ArcCreate.ChartFormat.Grammar
 
                 var (result, op) = ParseExpr(left, right);
 
-                return new AntlrValue($"{left.Raw}{op}{right.Raw}", AntlrValueType.Algebraic, context.Start,
-                    parentStart,
-                    algebraicValue: result);
+                return AntlrValue.FromAlgebraic($"{left.Raw}{op}{right.Raw}", result,
+                    context.Start.Line,
+                    context.Start.Column + parentStart.Column);
             }
 
             if (context.Int() != null)
@@ -142,7 +143,9 @@ namespace ArcCreate.ChartFormat.Grammar
                 var raw = context.Int().GetText();
                 var num = Convert.ToInt32(raw);
 
-                return new AntlrValue(raw, AntlrValueType.Algebraic, context.Start, parentStart, algebraicValue: num);
+                return AntlrValue.FromInteger(raw, num,
+                    context.Start.Line,
+                    context.Start.Column + parentStart.Column);
             }
 
             if (context.Float() != null)
@@ -150,7 +153,9 @@ namespace ArcCreate.ChartFormat.Grammar
                 var raw = context.Float().GetText();
                 var num = Convert.ToDouble(raw);
 
-                return new AntlrValue(raw, AntlrValueType.Algebraic, context.Start, parentStart, algebraicValue: num);
+                return AntlrValue.FromAlgebraic(raw, num,
+                    context.Start.Line,
+                    context.Start.Column + parentStart.Column);
             }
 
             throw new AntlrParseException("Unable to evaluate basic expr", context.GetText(), RawEventType.AntlrExpr,
@@ -217,7 +222,7 @@ namespace ArcCreate.ChartFormat.Grammar
         /// <returns><see cref="AntlrEvent"/></returns>
         public override object VisitEvent(UniversalAffChartParser.EventContext context)
         {
-            var name = context.Word().GetText();
+            var name = context.Word()?.GetText() ?? "";
 
             var ctxValues = context.values();
             var values = VisitValuesTyped(ctxValues);
@@ -234,7 +239,7 @@ namespace ArcCreate.ChartFormat.Grammar
                 var properties = VisitPropertiesTyped(ctxProperties);
                 foreach (var (key, value) in properties.Select(x => x.GetKeyValuePair()))
                 {
-                    propDict.Add(key, value);
+                    propDict.Add(key.ToLower(), value);
                 }
             }
 
@@ -270,12 +275,14 @@ namespace ArcCreate.ChartFormat.Grammar
             {
                 var value = VisitValueTyped(context.value());
 
-                return new AntlrValue($"{key}={value.Raw}", AntlrValueType.KeyValuePair, context.Start,
-                    keyValuePair: new Tuple<string, AntlrValue>(key, value));
+                return AntlrValue.FromKeyValuePair($"{key}={value.Raw}", new Tuple<string, AntlrValue>(key, value),
+                    context.Start.Line,
+                    context.Start.Column);
             }
 
-            return new AntlrValue(key, AntlrValueType.KeyValuePair, context.Start,
-                keyValuePair: new Tuple<string, AntlrValue>(key, null));
+            return AntlrValue.FromKeyValuePair(key, new Tuple<string, AntlrValue>(key, null),
+                context.Start.Line,
+                context.Start.Column);
         }
 
         public List<AntlrValue> VisitPropertiesTyped(UniversalAffChartParser.PropertiesContext context) =>
