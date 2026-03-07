@@ -56,7 +56,7 @@ namespace ArcCreate.ChartFormat
         {
             switch (extension)
             {
-                case "aff":
+                case ".aff":
                     return new ArcaeaChartReader(fileAccess, relativeDirectory, fullPath, filename);
                 default:
                     return new ArcCreateChartReader(fileAccess, relativeDirectory, fullPath, filename);

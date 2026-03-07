@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Antlr4.Runtime;
 using ArcCreate.ChartFormat.Grammar;
+using ArcCreate.Utility.Lua;
 using ArcCreate.Utility.Parser;
 using UnityEngine;
 
@@ -14,7 +15,7 @@ namespace ArcCreate.ChartFormat
     public class ArcaeaChartReader : ArcCreateChartReader
     {
         public new static ArcaeaChartReader Instance = new(null, string.Empty, string.Empty, string.Empty);
-        
+
         public static readonly Color DesignantColor = new Color32(240, 41, 97, byte.MaxValue);
 
         public ArcaeaChartReader(IFileAccessWrapper fileAccess, string relativeDirectory, string fullPath,
@@ -198,7 +199,7 @@ namespace ArcCreate.ChartFormat
                             break;
                         case "angley":
                             valid = Evaluator.TryFloat(value, out val);
-                            prop.AngleY = valid ? val / 10 : 0;
+                            prop.AngleY = valid ? val / -10 : 0;
                             break;
 
                         // don't throw exceptions to allow user add other identifiers for tg (but we don't parse them)
@@ -380,7 +381,10 @@ namespace ArcCreate.ChartFormat
                             CharacterStart = evt.ColumnNumber,
                             Length = evt.Raw.Length
                         }
-                    }
+                    },
+                    Sfx = hitSound,
+                    TimingGroup = timingGroup,
+                    Line = evt.LineNumber
                 };
             }
             else
@@ -505,48 +509,52 @@ namespace ArcCreate.ChartFormat
 
             // cast types
             var param = evt.Values.GetRange(2, evt.Values.Count - 2);
-            validator.Require(param.All(x => x.Type is AntlrValueType.String or AntlrValueType.Algebraic));
 
             var typedParam = param.Select(x => x.Type switch
             {
-                AntlrValueType.String => x.GetStringValue(),
-                AntlrValueType.Integer => x.GetIntegerValue(),
-                AntlrValueType.Algebraic => (object)x.GetAlgebraicValue(),
-                _ => ChartError.Property(x.Raw,
-                    evt.LineNumber,
-                    RawEventType.SceneControl,
-                    0,
-                    evt.Raw.Length,
-                    ChartError.Kind.Parsing)
+                AntlrValueType.String => (object)x.GetStringValue(),
+                AntlrValueType.Integer => (object)(float)x.GetIntegerValue(),
+                AntlrValueType.Algebraic => (object)(float)x.GetAlgebraicValue(),
+               
+                _ => throw new ChartReaderException(evt.Raw, RawEventType.SceneControl, evt, ChartError.Kind.Parsing)
             }).ToList();
 
-            return type.ToLower() switch
+            switch (type.ToLower())
             {
                 // https://github.com/freeze-dolphin/aff-compose/blob/17d0948c3f3726336661df4b68b0e5e2a86e3ef6/src/commonMain/kotlin/com/tairitsu/compose/filter/ShimFilter.kt#L32-L36
-                trackDisplay => new RawSceneControl
-                {
-                    Timing = tick,
-                    Type = RawEventType.SceneControl,
-                    Arguments = new List<object>
-                    {
-                        Mathf.RoundToInt((float)typedParam[0] * 1000),
-                        typedParam[1]
-                    },
-                    SceneControlTypeName = trackDisplay,
-                    TimingGroup = timingGroup,
-                    Line = evt.LineNumber
-                },
+                case trackDisplay:
+                    validator.Require(typedParam.Count == 2);
+                    validator.Require(float.TryParse(typedParam[0].ToString(), out var durationInSec));
+                    validator.Require(float.TryParse(typedParam[1].ToString(), out var alpha));
 
-                _ => new RawSceneControl
-                {
-                    Type = RawEventType.SceneControl,
-                    Timing = tick,
-                    Arguments = typedParam,
-                    SceneControlTypeName = type,
-                    TimingGroup = timingGroup,
-                    Line = evt.LineNumber
-                }
-            };
+                    var duration = 1000 * (Mathf.Approximately(durationInSec, 0)
+                        ? 1 // defaults to 1 sec
+                        : durationInSec);
+
+                    return new RawSceneControl
+                    {
+                        Timing = tick,
+                        Type = RawEventType.SceneControl,
+                        Arguments = new List<object>
+                        {
+                            Mathf.RoundToInt(duration),
+                            Mathf.Clamp(alpha, 0, 255)
+                        },
+                        SceneControlTypeName = trackDisplay,
+                        TimingGroup = timingGroup,
+                        Line = evt.LineNumber
+                    };
+                default:
+                    return new RawSceneControl
+                    {
+                        Type = RawEventType.SceneControl,
+                        Timing = tick,
+                        Arguments = typedParam,
+                        SceneControlTypeName = type,
+                        TimingGroup = timingGroup,
+                        Line = evt.LineNumber
+                    };
+            }
         }
     }
 }

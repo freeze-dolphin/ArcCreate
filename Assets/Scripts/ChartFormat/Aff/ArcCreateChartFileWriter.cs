@@ -242,6 +242,7 @@ namespace ArcCreate.ChartFormat
             var parameters = string.Join(",", sc.Arguments
                 .Select(x => x switch
                 {
+                    string s => s,
                     int i => i.ToString(),
                     float f => f.ToString(CultureInfo.InvariantCulture),
                     _ => null

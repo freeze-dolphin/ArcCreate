@@ -627,24 +627,14 @@ namespace ArcCreate.ChartFormat
 
             // cast types
             var param = evt.Values.GetRange(2, evt.Values.Count - 2);
-            validator.Require(param.All(x =>
-                x.Type is AntlrValueType.String or AntlrValueType.Algebraic or AntlrValueType.Integer));
 
-            var typedParam = param.Select(x =>
+            var typedParam = param.Select(x => x.Type switch
             {
-                return x.Type switch
-                {
-                    AntlrValueType.String => x.GetStringValue(),
-                    AntlrValueType.Integer => x.GetIntegerValue(),
-                    AntlrValueType.Algebraic => (object)x.GetAlgebraicValue(),
+                AntlrValueType.String => (object)x.GetStringValue(),
+                AntlrValueType.Integer => (object)(float)x.GetIntegerValue(),
+                AntlrValueType.Algebraic => (object)(float)x.GetAlgebraicValue(),
 
-                    _ => ChartError.Property(x.Raw,
-                        evt.LineNumber,
-                        RawEventType.SceneControl,
-                        0,
-                        evt.Raw.Length,
-                        ChartError.Kind.Parsing)
-                };
+                _ => throw new ChartReaderException(evt.Raw, RawEventType.SceneControl, evt, ChartError.Kind.Parsing)
             }).ToList();
 
             return new RawSceneControl

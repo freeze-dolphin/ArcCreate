@@ -40,9 +40,9 @@ namespace Tests.Unit
 
         [TestCase("timinggroup(noinput_anglex1800){};", 180)]
         [TestCase("timinggroup(anglex900){};", 90f)]
-        [TestCase("timinggroup(noinput_angley3450){};", 0, 345f)]
-        [TestCase("timinggroup(noinput_angley150){};", 0, 15f)]
-        [TestCase("timinggroup(noinput_anglex75_angley3525){};", 7.5f, 352.5f)]
+        [TestCase("timinggroup(noinput_angley3450){};", 0, -345f)]
+        [TestCase("timinggroup(noinput_angley150){};", 0, -15f)]
+        [TestCase("timinggroup(noinput_anglex75_angley3525){};", 7.5f, -352.5f)]
         public void ConvertAngleXY(string raw, float expectedAngleX = 0, float expectedAngleY = 0)
         {
             var evt = ParseEvents(raw)[0];
