@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using ArcCreate.Utility.Parser;
 
@@ -68,6 +69,7 @@ namespace ArcCreate.ChartFormat
 
         public bool Editable { get; set; } = true;
 
+        [Obsolete]
         public static Result<RawTimingGroup, ChartError> Parse(string def, int lineNumber = 0)
         {
             var tg = new RawTimingGroup();
@@ -137,34 +139,34 @@ namespace ArcCreate.ChartFormat
                             tg.DropRateSerialized = valid ? val : 0;
                             break;
                         case "max":
-                            AddRemapRules(tg, value, JudgementMap.Max);
+                            tg.AddRemapRules(value, JudgementMap.Max);
                             break;
                         case "perfect":
-                            AddRemapRules(tg, value, JudgementMap.PerfectEarly, JudgementMap.PerfectLate);
+                            tg.AddRemapRules(value, JudgementMap.PerfectEarly, JudgementMap.PerfectLate);
                             break;
                         case "perfectearly":
-                            AddRemapRules(tg, value, JudgementMap.PerfectEarly);
+                            tg.AddRemapRules(value, JudgementMap.PerfectEarly);
                             break;
                         case "perfectlate":
-                            AddRemapRules(tg, value, JudgementMap.PerfectLate);
+                            tg.AddRemapRules(value, JudgementMap.PerfectLate);
                             break;
                         case "good":
-                            AddRemapRules(tg, value, JudgementMap.GoodEarly, JudgementMap.GoodLate);
+                            tg.AddRemapRules(value, JudgementMap.GoodEarly, JudgementMap.GoodLate);
                             break;
                         case "goodearly":
-                            AddRemapRules(tg, value, JudgementMap.GoodEarly);
+                            tg.AddRemapRules(value, JudgementMap.GoodEarly);
                             break;
                         case "goodlate":
-                            AddRemapRules(tg, value, JudgementMap.GoodLate);
+                            tg.AddRemapRules(value, JudgementMap.GoodLate);
                             break;
                         case "miss":
-                            AddRemapRules(tg, value, JudgementMap.MissEarly, JudgementMap.MissLate);
+                            tg.AddRemapRules(value, JudgementMap.MissEarly, JudgementMap.MissLate);
                             break;
                         case "missearly":
-                            AddRemapRules(tg, value, JudgementMap.MissEarly);
+                            tg.AddRemapRules(value, JudgementMap.MissEarly);
                             break;
                         case "misslate":
-                            AddRemapRules(tg, value, JudgementMap.MissLate);
+                            tg.AddRemapRules(value, JudgementMap.MissLate);
                             break;
                         default:
                             return ChartError.Property(
