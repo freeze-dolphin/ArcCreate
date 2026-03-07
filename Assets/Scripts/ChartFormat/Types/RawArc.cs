@@ -43,13 +43,15 @@ namespace ArcCreate.ChartFormat
 
         public Color? StainedColor
         {
-            get =>
-                ColorUtility.TryParseHtmlString(
-                    "#" + Properties.GetValueOrDefault(PropertyStainedColorKey, null).TrimStart('#'),
-                    out var color
-                )
+            get
+            {
+                var colorRaw = Properties.GetValueOrDefault(PropertyStainedColorKey, null);
+                if (colorRaw == null) return null;
+
+                return ColorUtility.TryParseHtmlString("#" + colorRaw.TrimStart('#'), out var color)
                     ? color
                     : null;
+            }
             set => Properties[PropertyStainedColorKey] = value.HasValue
                 ? "#" + ColorUtility.ToHtmlStringRGB(value.Value)
                 : null;

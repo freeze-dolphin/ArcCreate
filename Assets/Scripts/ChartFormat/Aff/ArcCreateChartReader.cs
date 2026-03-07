@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using Antlr4.Runtime;
 using ArcCreate.ChartFormat.Grammar;
 using ArcCreate.Utility.Parser;
 using UnityEngine;
@@ -15,6 +14,8 @@ namespace ArcCreate.ChartFormat
     /// </summary>
     public class ArcCreateChartReader : ChartReader
     {
+        public static ArcCreateChartReader Instance => new(null, string.Empty, string.Empty, string.Empty);
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ArcCreateChartReader"/> class. You should use <see cref="ChartReaderFactory"/> to instantiate instead.
         /// </summary>
@@ -73,20 +74,14 @@ namespace ArcCreate.ChartFormat
 
             #endregion
 
-            var antlrInput = new AntlrInputStream(string.Join("\n", lines.Value.Skip(headerLineNumber + 1)));
-            var lexer = new UniversalAffChartLexer(antlrInput);
-            var tokens = new CommonTokenStream(lexer);
-            var parser = new UniversalAffChartParser(tokens);
-
-            parser.RemoveErrorListeners();
-            parser.AddErrorListener(new AntlrChartErrorListener(lines.Value));
-
-            var visitor = new UniversalChartVisitor();
+            var chartSegment = ParseEvents(string.Join("\n", lines.Value.Skip(headerLineNumber + 1)), parser =>
+            {
+                parser.RemoveErrorListeners();
+                parser.AddErrorListener(new AntlrChartErrorListener(lines.Value));
+            });
 
             try
             {
-                var chartSegment = visitor.VisitChartTyped(parser.chart());
-
                 foreach (var evt in chartSegment.Events)
                 {
                     if (evt.Name == "timinggroup")
@@ -308,7 +303,7 @@ namespace ArcCreate.ChartFormat
                     switch (type.ToLower())
                     {
                         case "name":
-                            prop.Name = value.Trim('"');
+                            prop.Name = value; // no need to trim quotes, it has been trimmed during antlr
                             break;
                         case "anglex":
                             valid = Evaluator.TryFloat(value, out val);
@@ -456,9 +451,9 @@ namespace ArcCreate.ChartFormat
 
             return new RawTap
             {
+                Type = RawEventType.Tap,
                 Timing = tick,
                 Lane = (float)lane,
-                Type = RawEventType.Tap,
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber
             };
@@ -481,10 +476,10 @@ namespace ArcCreate.ChartFormat
 
             return new RawHold
             {
+                Type = RawEventType.Hold,
                 Timing = tick,
                 EndTiming = endTick,
                 Lane = (float)track,
-                Type = RawEventType.Hold,
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber
             };
@@ -502,10 +497,10 @@ namespace ArcCreate.ChartFormat
 
             return new RawTiming
             {
+                Type = RawEventType.Timing,
                 Timing = tick,
                 Divisor = (float)divisor,
                 Bpm = (float)bpm,
-                Type = RawEventType.Timing,
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber
             };
@@ -543,14 +538,16 @@ namespace ArcCreate.ChartFormat
             }
 
             Color stainedColor = Color.black;
-            bool hasStainedColor = evt.Properties.TryGetValue(RawArc.PropertyStainedColorKey, out var stainedColorRaw) &&
-                                   stainedColorRaw.TryGetStringValue(out string stainedColorStr) &&
-                                   ColorUtility.TryParseHtmlString(stainedColorStr, out stainedColor);
+            bool hasStainedColor =
+                evt.Properties.TryGetValue(RawArc.PropertyStainedColorKey, out var stainedColorRaw) &&
+                stainedColorRaw.TryGetStringValue(out string stainedColorStr) &&
+                ColorUtility.TryParseHtmlString(stainedColorStr, out stainedColor);
 
             var isTrace = arcType is "true" or "designant";
 
             var arc = new RawArc
             {
+                Type = RawEventType.Arc,
                 Timing = tick,
                 EndTiming = endTick,
                 XStart = (float)xStart,
@@ -619,8 +616,8 @@ namespace ArcCreate.ChartFormat
             {
                 return new RawSceneControl
                 {
-                    Timing = tick,
                     Type = RawEventType.SceneControl,
+                    Timing = tick,
                     Arguments = new List<object>(),
                     SceneControlTypeName = type,
                     TimingGroup = timingGroup,
@@ -652,8 +649,8 @@ namespace ArcCreate.ChartFormat
 
             return new RawSceneControl
             {
-                Timing = tick,
                 Type = RawEventType.SceneControl,
+                Timing = tick,
                 Arguments = typedParam,
                 SceneControlTypeName = type,
                 TimingGroup = timingGroup,
@@ -679,13 +676,13 @@ namespace ArcCreate.ChartFormat
 
             return new RawCamera
             {
+                Type = RawEventType.Camera,
                 TimingGroup = timingGroup,
                 Timing = tick,
                 Duration = duration,
                 Move = new Vector3((float)mx, (float)my, (float)mz),
                 Rotate = new Vector3((float)rx, (float)ry, (float)rz),
                 CameraType = type,
-                Type = RawEventType.Camera,
                 Line = evt.LineNumber
             };
         }
@@ -699,6 +696,7 @@ namespace ArcCreate.ChartFormat
 
             return new RawInclude
             {
+                Type = RawEventType.Include,
                 File = file
             };
         }
@@ -713,6 +711,7 @@ namespace ArcCreate.ChartFormat
 
             return new RawFragment
             {
+                Type = RawEventType.Fragment,
                 Timing = tick,
                 File = file
             };

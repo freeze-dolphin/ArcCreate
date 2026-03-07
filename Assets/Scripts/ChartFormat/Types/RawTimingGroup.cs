@@ -1,6 +1,5 @@
-using System;
 using System.Collections.Generic;
-using ArcCreate.Utility.Parser;
+using System.Linq;
 
 namespace ArcCreate.ChartFormat
 {
@@ -69,170 +68,20 @@ namespace ArcCreate.ChartFormat
 
         public bool Editable { get; set; } = true;
 
-        [Obsolete]
-        public static Result<RawTimingGroup, ChartError> Parse(string def, int lineNumber = 0)
+        /// <summary>
+        /// Parse properties string with a <see cref="ChartReader"/> instance
+        /// </summary>
+        /// <param name="reader"></param>
+        /// <param name="propertiesRaw"></param>
+        /// <returns></returns>
+        public static RawTimingGroup ParseProperties(ChartReader reader, string propertiesRaw)
         {
-            var tg = new RawTimingGroup();
-            if (def == "")
-            {
-                return tg;
-            }
-
-            def += ",";
-            StringParser parser = new StringParser(def);
-            while (!parser.HasEnded)
-            {
-                if (!parser.ReadString(",").TryUnwrap(out TextSpan<string> optRaw, out ParsingError e))
-                {
-                    return ChartError.Parsing(def, lineNumber, RawEventType.TimingGroup, e);
-                }
-
-                string opt = optRaw.Value.Trim();
-                if (opt.Contains("="))
-                {
-                    string[] tokens = opt.Split('=');
-                    string type = tokens[0];
-                    string value = tokens[1];
-
-                    bool valid;
-                    float val;
-                    switch (type.ToLower())
-                    {
-                        case "name":
-                            tg.Name = value.Trim('"');
-                            break;
-                        case "anglex":
-                            valid = Evaluator.TryFloat(value, out val);
-                            tg.AngleX = valid ? val : 0;
-                            break;
-                        case "angley":
-                            valid = Evaluator.TryFloat(value, out val);
-                            tg.AngleY = valid ? val : 0;
-                            break;
-                        case "judgesizex":
-                            valid = Evaluator.TryFloat(value, out val);
-                            tg.JudgementSizeX = valid ? val : 1;
-                            break;
-                        case "judgesizey":
-                            valid = Evaluator.TryFloat(value, out val);
-                            tg.JudgementSizeY = valid ? val : 1;
-                            break;
-                        case "judgeoffsetx":
-                            valid = Evaluator.TryFloat(value, out val);
-                            tg.JudgementOffsetX = valid ? val : 1;
-                            break;
-                        case "judgeoffsety":
-                            valid = Evaluator.TryFloat(value, out val);
-                            tg.JudgementOffsetY = valid ? val : 1;
-                            break;
-                        case "judgeoffsetz":
-                            valid = Evaluator.TryFloat(value, out val);
-                            tg.JudgementOffsetZ = valid ? val : 1;
-                            break;
-                        case "arcresolution":
-                            valid = Evaluator.TryFloat(value, out val);
-                            val = UnityEngine.Mathf.Clamp(val, 0.1f, 10);
-                            tg.ArcResolution = valid ? val : 1;
-                            break;
-                        case "droprate":
-                            valid = Evaluator.TryFloat(value, out val);
-                            tg.DropRateSerialized = valid ? val : 0;
-                            break;
-                        case "max":
-                            tg.AddRemapRules(value, JudgementMap.Max);
-                            break;
-                        case "perfect":
-                            tg.AddRemapRules(value, JudgementMap.PerfectEarly, JudgementMap.PerfectLate);
-                            break;
-                        case "perfectearly":
-                            tg.AddRemapRules(value, JudgementMap.PerfectEarly);
-                            break;
-                        case "perfectlate":
-                            tg.AddRemapRules(value, JudgementMap.PerfectLate);
-                            break;
-                        case "good":
-                            tg.AddRemapRules(value, JudgementMap.GoodEarly, JudgementMap.GoodLate);
-                            break;
-                        case "goodearly":
-                            tg.AddRemapRules(value, JudgementMap.GoodEarly);
-                            break;
-                        case "goodlate":
-                            tg.AddRemapRules(value, JudgementMap.GoodLate);
-                            break;
-                        case "miss":
-                            tg.AddRemapRules(value, JudgementMap.MissEarly, JudgementMap.MissLate);
-                            break;
-                        case "missearly":
-                            tg.AddRemapRules(value, JudgementMap.MissEarly);
-                            break;
-                        case "misslate":
-                            tg.AddRemapRules(value, JudgementMap.MissLate);
-                            break;
-                        default:
-                            return ChartError.Property(
-                                def,
-                                lineNumber,
-                                RawEventType.TimingGroup,
-                                optRaw.StartPos,
-                                optRaw.Length,
-                                ChartError.Kind.TimingGroupPropertiesInvalid);
-                    }
-                }
-                else
-                {
-                    switch (opt.ToLower())
-                    {
-                        case "noinput":
-                            tg.NoInput = true;
-                            break;
-                        case "noclip":
-                            tg.NoClip = true;
-                            break;
-                        case "noheightindicator":
-                            tg.NoHeightIndicator = true;
-                            break;
-                        case "nohead":
-                            tg.NoHead = true;
-                            break;
-                        case "noshadow":
-                            tg.NoShadow = true;
-                            break;
-                        case "noarccap":
-                            tg.NoArcCap = true;
-                            break;
-                        case "noconnection":
-                            tg.NoConnection = true;
-                            break;
-                        case "light":
-                            tg.Side = SideOverride.Light;
-                            break;
-                        case "conflict":
-                            tg.Side = SideOverride.Conflict;
-                            break;
-                        case "fadingholds":
-                            tg.FadingHolds = true;
-                            break;
-                        case "ignoremirror":
-                            tg.IgnoreMirror = true;
-                            break;
-                        case "autoplay":
-                            tg.Autoplay = true;
-                            break;
-                        default:
-                            return ChartError.Property(
-                                def,
-                                lineNumber,
-                                RawEventType.TimingGroup,
-                                optRaw.StartPos,
-                                optRaw.Length,
-                                ChartError.Kind.TimingGroupPropertiesInvalid);
-                    }
-                }
-            }
-
-            return tg;
+            var raw = $"timinggroup({propertiesRaw})" + "{};";
+            var tgEvt = ChartReader.ParseEvents(raw).Events.ToList()[0];
+            
+            return reader.ParseTimingGroupProperties(raw, tgEvt);
         }
-
+        
         private static bool TryGetJudgement(string mapTo, out JudgementMap result)
         {
             switch (mapTo)
@@ -251,13 +100,6 @@ namespace ArcCreate.ChartFormat
             }
         }
 
-        /*
-         * if (DropRateSerialized != 0)
-            {
-                opts.Add($"droprate={DropRateSerialized:f1}");
-            }
-         */
-        
         public void AddRemapRules(string value, params JudgementMap[] fromJudgements)
         {
             string mapTo = value.Trim('"').ToLower();

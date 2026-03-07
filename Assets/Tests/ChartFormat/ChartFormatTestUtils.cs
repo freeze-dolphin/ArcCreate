@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Antlr4.Runtime;
 using ArcCreate.ChartFormat;
 using ArcCreate.ChartFormat.Grammar;
 using JetBrains.Annotations;
@@ -10,17 +9,7 @@ namespace Tests.Unit
 {
     public static class ChartFormatTestUtils
     {
-        public static List<AntlrEvent> ParseEvents(string raw)
-        {
-            var antlrInput = new AntlrInputStream(raw);
-            var lexer = new UniversalAffChartLexer(antlrInput);
-            var tokens = new CommonTokenStream(lexer);
-            var parser = new UniversalAffChartParser(tokens);
-            var visitor = new UniversalChartVisitor();
-
-            var segment = visitor.VisitChartTyped(parser.chart());
-            return segment.Events.ToList();
-        }
+        public static List<AntlrEvent> ParseEvents(string raw) => ChartReader.ParseEvents(raw).Events.ToList();
 
         public static void AssertChartReaderError([InstantHandle] TestDelegate code, ChartError.Kind kind)
         {

@@ -13,6 +13,8 @@ namespace ArcCreate.ChartFormat
     /// </summary>
     public class ArcaeaChartReader : ArcCreateChartReader
     {
+        public new static ArcaeaChartReader Instance = new(null, string.Empty, string.Empty, string.Empty);
+        
         public static readonly Color DesignantColor = new Color32(240, 41, 97, byte.MaxValue);
 
         public ArcaeaChartReader(IFileAccessWrapper fileAccess, string relativeDirectory, string fullPath,
@@ -147,7 +149,9 @@ namespace ArcCreate.ChartFormat
             var validator = new ChartReaderValidator(evt, RawEventType.TimingGroup);
 
             // timing group properties are connected by '_' in Arcaea
-            validator.Require(evt.Values.Count is 0 or 1);
+            // an empty AntlrValue takes one place in Values list, so its count should be constant 1 
+            // but for generality we assert its count to be <= 1
+            validator.Require(evt.Values.Count <= 1);
 
             var propDict = new Dictionary<string, string>();
 
@@ -187,10 +191,6 @@ namespace ArcCreate.ChartFormat
                     float val;
                     switch (type.ToLower())
                     {
-                        case "name":
-                            prop.Name = value.Trim('"');
-                            break;
-
                         // https://github.com/freeze-dolphin/aff-compose/blob/17d0948c3f3726336661df4b68b0e5e2a86e3ef6/src/commonMain/kotlin/com/tairitsu/compose/filter/ShimFilter.kt#L41-L45
                         case "anglex":
                             valid = Evaluator.TryFloat(value, out val);
@@ -201,10 +201,12 @@ namespace ArcCreate.ChartFormat
                             prop.AngleY = valid ? val / 10 : 0;
                             break;
 
-                        // don't throw exceptions to allow user add identifier for tg
-                        /*default:
+                        // don't throw exceptions to allow user add other identifiers for tg (but we don't parse them)
+                        /*
+                        default:
                             throw new ChartReaderException(raw, RawEventType.TimingGroup, evt,
-                                ChartError.Kind.TimingGroupPropertiesInvalid);*/
+                                ChartError.Kind.TimingGroupPropertiesInvalid);
+                        */
                     }
                 }
                 else
@@ -218,10 +220,12 @@ namespace ArcCreate.ChartFormat
                             prop.FadingHolds = true;
                             break;
 
-                        // don't throw exceptions to allow user add identifier for tg
-                        /*default:
+                        // don't throw exceptions to allow user add other identifiers for tg (but we don't parse them)
+                        /*
+                        default:
                             throw new ChartReaderException(raw, RawEventType.TimingGroup, evt,
-                                ChartError.Kind.TimingGroupPropertiesInvalid);*/
+                                ChartError.Kind.TimingGroupPropertiesInvalid);
+                        */
                     }
                 }
             }
@@ -261,9 +265,9 @@ namespace ArcCreate.ChartFormat
 
             return new RawTap
             {
+                Type = RawEventType.Tap,
                 Timing = tick,
                 Lane = lane,
-                Type = RawEventType.Tap,
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber
             };
@@ -296,10 +300,10 @@ namespace ArcCreate.ChartFormat
 
             return new RawHold
             {
+                Type = RawEventType.Hold,
                 Timing = tick,
                 EndTiming = endTick,
                 Lane = lane,
-                Type = RawEventType.Hold,
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber
             };
@@ -354,6 +358,7 @@ namespace ArcCreate.ChartFormat
 
                 arc = new RawArc
                 {
+                    Type = RawEventType.Arc,
                     Timing = tick,
                     EndTiming = tick + 1,
                     XStart = xCenter,
@@ -384,6 +389,7 @@ namespace ArcCreate.ChartFormat
 
                 arc = new RawArc
                 {
+                    Type = RawEventType.Arc,
                     Timing = tick,
                     EndTiming = endTick,
                     XStart = (float)xStart,
@@ -459,8 +465,8 @@ namespace ArcCreate.ChartFormat
                     // https://github.com/freeze-dolphin/aff-compose/blob/17d0948c3f3726336661df4b68b0e5e2a86e3ef6/src/commonMain/kotlin/com/tairitsu/compose/filter/ShimFilter.kt#L29
                     "trackhide" => new RawSceneControl
                     {
-                        Timing = tick,
                         Type = RawEventType.SceneControl,
+                        Timing = tick,
                         Arguments = new List<object>
                         {
                             1000,
@@ -474,8 +480,8 @@ namespace ArcCreate.ChartFormat
                     // https://github.com/freeze-dolphin/aff-compose/blob/17d0948c3f3726336661df4b68b0e5e2a86e3ef6/src/commonMain/kotlin/com/tairitsu/compose/filter/ShimFilter.kt#L30
                     "trackshow" => new RawSceneControl
                     {
-                        Timing = tick,
                         Type = RawEventType.SceneControl,
+                        Timing = tick,
                         Arguments = new List<object>
                         {
                             1000,
@@ -488,8 +494,8 @@ namespace ArcCreate.ChartFormat
 
                     _ => new RawSceneControl
                     {
-                        Timing = tick,
                         Type = RawEventType.SceneControl,
+                        Timing = tick,
                         Arguments = new List<object>(),
                         SceneControlTypeName = type,
                         TimingGroup = timingGroup,
@@ -533,8 +539,8 @@ namespace ArcCreate.ChartFormat
 
                 _ => new RawSceneControl
                 {
-                    Timing = tick,
                     Type = RawEventType.SceneControl,
+                    Timing = tick,
                     Arguments = typedParam,
                     SceneControlTypeName = type,
                     TimingGroup = timingGroup,

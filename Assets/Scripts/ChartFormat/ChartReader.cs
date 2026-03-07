@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Antlr4.Runtime;
 using ArcCreate.ChartFormat.Grammar;
 
 namespace ArcCreate.ChartFormat
@@ -47,6 +48,20 @@ namespace ArcCreate.ChartFormat
 
         protected List<ChartReader> References { get; } = new List<ChartReader>();
 
+        public static AntlrEventSegment ParseEvents(string raw, Action<UniversalAffChartParser> postParserAction = null)
+        {
+            var antlrInput = new AntlrInputStream(raw);
+            var lexer = new UniversalAffChartLexer(antlrInput);
+            var tokens = new CommonTokenStream(lexer);
+            var parser = new UniversalAffChartParser(tokens);
+            var visitor = new UniversalChartVisitor();
+
+            postParserAction?.Invoke(parser);
+            
+            var segment = visitor.VisitChartTyped(parser.chart());
+            return segment;
+        }
+        
         /// <summary>
         /// Start parsing with the provided <see cref="FullPath"/> and <see cref="FileName"/>.
         /// </summary>
