@@ -3,7 +3,6 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Antlr4.Runtime;
 using ArcCreate.ChartFormat.Grammar;
-using ArcCreate.Utility.Lua;
 using ArcCreate.Utility.Parser;
 using UnityEngine;
 
@@ -419,7 +418,7 @@ namespace ArcCreate.ChartFormat
             {
                 if (shouldApply)
                 {
-                    rawArc.StainedColor = DesignantColor;
+                    rawArc.TraceColor = DesignantColor;
                 }
             }
         }

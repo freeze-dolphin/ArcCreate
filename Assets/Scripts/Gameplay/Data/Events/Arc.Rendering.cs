@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using ArcCreate.Gameplay.Judgement;
 using ArcCreate.Gameplay.Utility;
 using UnityEngine;
@@ -39,6 +40,10 @@ namespace ArcCreate.Gameplay.Data
 
         public string Sfx { get; set; }
 
+        public float ArcResolution { get; set; }
+
+        public Color? TraceColor { get; set; }
+
         public ArcLineType LineType { get; set; }
 
         public Arc NextArc { get; set; }
@@ -61,7 +66,16 @@ namespace ArcCreate.Gameplay.Data
         }
 
         public float SegmentLength
-            => ArcFormula.CalculateArcSegmentLength(EndTiming - Timing, TimingGroupInstance.GroupProperties.ArcResolution);
+        {
+            get
+            {
+                var res = !Mathf.Approximately(ArcResolution, 1f)
+                    ? ArcResolution
+                    : TimingGroupInstance.GroupProperties.ArcResolution;
+                
+                return ArcFormula.CalculateArcSegmentLength(EndTiming - Timing, res);
+            }
+        }
 
         public bool ShouldDrawHeightIndicator => !IsTrace && (YStart != YEnd || IsFirstArcOfGroup);
 
@@ -88,6 +102,8 @@ namespace ArcCreate.Gameplay.Data
                 IsTrace = IsTrace,
                 TimingGroup = TimingGroup,
                 Sfx = Sfx,
+                ArcResolution = ArcResolution,
+                TraceColor = TraceColor
             };
 
             return arc;
@@ -106,6 +122,8 @@ namespace ArcCreate.Gameplay.Data
             IsTrace = n.IsTrace;
             TimingGroup = n.TimingGroup;
             Sfx = n.Sfx;
+            ArcResolution = n.ArcResolution;
+            TraceColor = n.TraceColor;
             foreach (var at in ArcTaps)
             {
                 at.TimingGroup = n.TimingGroup;
@@ -242,7 +260,7 @@ namespace ArcCreate.Gameplay.Data
 
                 if (IsTrace)
                 {
-                    Services.Render.DrawTraceSegment(matrix * bodyMatrix, color, IsSelected, depth);
+                    Services.Render.DrawTraceSegment(matrix * bodyMatrix, TraceColor ?? color, IsSelected, depth, TraceColor.HasValue);
                     if (!groupProperties.NoShadow)
                     {
                         Services.Render.DrawTraceShadow(matrix * shadowMatrix, color);
@@ -268,7 +286,7 @@ namespace ArcCreate.Gameplay.Data
             {
                 if (IsTrace)
                 {
-                    Services.Render.DrawTraceHead(matrix, color, IsSelected);
+                    Services.Render.DrawTraceHead(matrix, TraceColor ?? color, IsSelected);
                 }
                 else
                 {
@@ -278,7 +296,7 @@ namespace ArcCreate.Gameplay.Data
 
             if (!groupProperties.NoArcCap && shouldDrawArcCap)
             {
-                Services.Render.DrawArcCap(arcCap, matrix * arcCapMatrix, arcCapColor * groupProperties.Color, isControllerMode);
+                Services.Render.DrawArcCap(arcCap, matrix * arcCapMatrix, (TraceColor ?? arcCapColor) * groupProperties.Color, isControllerMode);
             }
 
             if (currentTiming <= longParticleUntil && currentTiming >= Timing && currentTiming <= EndTiming)

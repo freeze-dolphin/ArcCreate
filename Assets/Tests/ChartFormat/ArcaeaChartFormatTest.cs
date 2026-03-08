@@ -58,7 +58,7 @@ namespace Tests.Unit
             var evt = ParseEvents("arc(0,1,0,0,s,1,1,1,none,designant)[arctap(0)];")[0];
             var arc = reader.ParseArc(evt, 0);
 
-            Assert.That(arc.StainedColor, Is.EqualTo(ArcaeaChartReader.DesignantColor));
+            Assert.That(arc.TraceColor, Is.EqualTo(ArcaeaChartReader.DesignantColor));
         }
 
         [Test]

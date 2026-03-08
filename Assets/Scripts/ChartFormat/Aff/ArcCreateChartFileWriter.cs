@@ -205,19 +205,19 @@ namespace ArcCreate.ChartFormat
 
         protected virtual string SerializeArcProperties(RawArc arc)
         {
-            string serialized = "";
+            List<string> serialized = new();
 
             if (!Mathf.Approximately(arc.ArcResolution, 1))
             {
-                serialized += $"{RawArc.PropertyArcResolutionKey}: {arc.ArcResolution:f2}";
+                serialized.Add($"{RawArc.PropertyArcResolutionKey}: {arc.ArcResolution:f2}");
             }
 
-            if (arc.TryGetStainedColor(out var arcStainedColor))
+            if (arc.TryGetTraceColor(out var arcStainedColor))
             {
-                serialized += $"{RawArc.PropertyStainedColorKey}: {arcStainedColor}";
+                serialized.Add($"{RawArc.PropertyTraceColorKey}: #{ColorUtility.ToHtmlStringRGB(arcStainedColor)}");
             }
 
-            return serialized.Length > 0 ? $"< {serialized} >" : serialized;
+            return serialized.Count > 0 ? $"< {string.Join(", ", serialized)} >" : "";
         }
 
         protected virtual string SerializeCamera(RawCamera cam) =>

@@ -28,6 +28,10 @@ namespace ArcCreate.ChartFormat
         public List<RawArcTap> ArcTaps { get; set; }
 
         #region Property
+        
+        /*
+         * PROPERTY KEYS MUST BE IN LOWERCASE
+         */
 
         public const string PropertyArcResolutionKey = "resolution";
 
@@ -39,27 +43,27 @@ namespace ArcCreate.ChartFormat
             set => Properties[PropertyArcResolutionKey] = value.ToString(CultureInfo.InvariantCulture);
         }
 
-        public const string PropertyStainedColorKey = "stained";
+        public const string PropertyTraceColorKey = "tracecolor";
 
-        public Color? StainedColor
+        public Color? TraceColor
         {
             get
             {
-                var colorRaw = Properties.GetValueOrDefault(PropertyStainedColorKey, null);
+                var colorRaw = Properties.GetValueOrDefault(PropertyTraceColorKey, null);
                 if (colorRaw == null) return null;
 
                 return ColorUtility.TryParseHtmlString("#" + colorRaw.TrimStart('#'), out var color)
                     ? color
                     : null;
             }
-            set => Properties[PropertyStainedColorKey] = value.HasValue
+            set => Properties[PropertyTraceColorKey] = value.HasValue
                 ? "#" + ColorUtility.ToHtmlStringRGB(value.Value)
                 : null;
         }
 
-        public bool TryGetStainedColor(out Color color)
+        public bool TryGetTraceColor(out Color color)
         {
-            var c = StainedColor;
+            var c = TraceColor;
             color = c ?? UnityEngine.Color.black;
 
             return c.HasValue;

@@ -70,6 +70,8 @@ namespace ArcCreate.Gameplay.Data
                             YEnd = raw.YEnd,
                             YStart = raw.YStart,
                             Sfx = raw.Sfx,
+                            ArcResolution = raw.ArcResolution,
+                            TraceColor = raw.TraceColor
                         };
 
                         if (raw.ArcTaps != null)

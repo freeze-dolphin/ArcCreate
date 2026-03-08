@@ -539,7 +539,7 @@ namespace ArcCreate.ChartFormat
 
             Color stainedColor = Color.black;
             bool hasStainedColor =
-                evt.Properties.TryGetValue(RawArc.PropertyStainedColorKey, out var stainedColorRaw) &&
+                evt.Properties.TryGetValue(RawArc.PropertyTraceColorKey, out var stainedColorRaw) &&
                 stainedColorRaw.TryGetStringValue(out string stainedColorStr) &&
                 ColorUtility.TryParseHtmlString(stainedColorStr, out stainedColor);
 
@@ -566,7 +566,7 @@ namespace ArcCreate.ChartFormat
 
             if (hasStainedColor)
             {
-                arc.StainedColor = stainedColor;
+                arc.TraceColor = stainedColor;
             }
 
             return arc;
