@@ -68,7 +68,7 @@ namespace ArcCreate.ChartFormat
 
             #endregion
 
-            var antlrInput = new AntlrInputStream(string.Join("\n", lines.Value.Skip(headerLineNumber + 1)));
+            var antlrInput = new AntlrInputStream(string.Join("\n", lines.Value.Skip(headerLineNumber)));
             var lexer = new UniversalAffChartLexer(antlrInput);
             var tokens = new CommonTokenStream(lexer);
             var parser = new UniversalAffChartParser(tokens);
@@ -98,12 +98,21 @@ namespace ArcCreate.ChartFormat
             }
             catch (AntlrParseException ex)
             {
-                errors.Add(ChartError.Parsing(ex.Raw, ex.LineNumber, ex.EventType,
-                    new ParsingError(ex.Message, 0, ex.Raw.Length, ParsingError.Kind.Antlr)));
+                errors.Add(ChartError.Parsing(ex.Raw,
+                    ex.LineNumber + headerLineNumber, // skip headers and separator
+                    ex.EventType,
+                    new ParsingError(ex.Message,
+                        0,
+                        ex.Raw.Length,
+                        ParsingError.Kind.Antlr)));
             }
             catch (ChartReaderException ex)
             {
-                errors.Add(ChartError.Property(ex.Raw, ex.LineNumber, ex.EventType, 0, ex.Raw.Length,
+                errors.Add(ChartError.Property(ex.Raw,
+                    ex.LineNumber + headerLineNumber, // skip headers and separator
+                    ex.EventType,
+                    0,
+                    ex.Raw.Length,
                     ex.ErrorKind));
             }
 
@@ -514,7 +523,7 @@ namespace ArcCreate.ChartFormat
                 AntlrValueType.String => (object)x.GetStringValue(),
                 AntlrValueType.Integer => (object)(float)x.GetIntegerValue(),
                 AntlrValueType.Algebraic => (object)(float)x.GetAlgebraicValue(),
-               
+
                 _ => throw new ChartReaderException(evt.Raw, RawEventType.SceneControl, evt, ChartError.Kind.Parsing)
             }).ToList();
 

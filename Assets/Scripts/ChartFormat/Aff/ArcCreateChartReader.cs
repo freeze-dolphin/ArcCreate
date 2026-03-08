@@ -74,7 +74,7 @@ namespace ArcCreate.ChartFormat
 
             #endregion
 
-            var chartSegment = ParseEvents(string.Join("\n", lines.Value.Skip(headerLineNumber + 1)), parser =>
+            var chartSegment = ParseEvents(string.Join("\n", lines.Value.Skip(headerLineNumber)), parser =>
             {
                 parser.RemoveErrorListeners();
                 parser.AddErrorListener(new AntlrChartErrorListener(lines.Value));
@@ -173,12 +173,21 @@ namespace ArcCreate.ChartFormat
             }
             catch (AntlrParseException ex)
             {
-                errors.Add(ChartError.Parsing(ex.Raw, ex.LineNumber, ex.EventType,
-                    new ParsingError(ex.Message, 0, ex.Raw.Length, ParsingError.Kind.Antlr)));
+                errors.Add(ChartError.Parsing(ex.Raw,
+                    ex.LineNumber + headerLineNumber, // skip headers and separator
+                    ex.EventType,
+                    new ParsingError(ex.Message,
+                        0,
+                        ex.Raw.Length,
+                        ParsingError.Kind.Antlr)));
             }
             catch (ChartReaderException ex)
             {
-                errors.Add(ChartError.Property(ex.Raw, ex.LineNumber, ex.EventType, 0, ex.Raw.Length,
+                errors.Add(ChartError.Property(ex.Raw,
+                    ex.LineNumber + headerLineNumber, // skip headers and separator
+                    ex.EventType,
+                    0,
+                    ex.Raw.Length,
                     ex.ErrorKind));
             }
 
@@ -228,7 +237,7 @@ namespace ArcCreate.ChartFormat
                 var line = lines[lineNumber];
                 if (line.StartsWith('-'))
                 {
-                    return (lineNumber, headerItems);
+                    return (lineNumber + 1, headerItems);
                 }
 
                 StringParser s = new StringParser(line);
