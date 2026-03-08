@@ -3,6 +3,8 @@ using ArcCreate.ChartFormat;
 using ArcCreate.ChartFormat.Grammar;
 using NSubstitute;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools.Utils;
 using static Tests.Unit.ChartFormatTestUtils;
 
 namespace Tests.Unit
@@ -103,6 +105,18 @@ namespace Tests.Unit
             Assert.That(e.Color, Is.EqualTo(color));
             Assert.That(e.IsTrace, Is.EqualTo(isTrace));
             Assert.That(e.Sfx, Is.EqualTo(sfx));
+        }
+
+        [Test]
+        public void ParseArcTraceColor()
+        {
+            var evt = ParseEvents(
+                "arc(78000,82800,0.50,0.50,s,0.00,0.00,0,none,true)[arctap(82200)]< tracecolor: #F02961 >;")[0];
+            
+            var e = reader.ParseArc(evt, 0);
+            
+            Assert.True(e.TraceColor.HasValue);
+            Assert.True(ColorEqualityComparer.Instance.Equals(e.TraceColor.Value, new Color32(240, 41, 97, 255)));
         }
 
         [TestCase("arc(0,1,0,0,b,1,1,0,true,none,2);")]

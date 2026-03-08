@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using ArcCreate.Gameplay.Utility;
 using UnityEngine;
-using UnityEngine.AdaptivePerformance;
 
 namespace ArcCreate.Gameplay.Render
 {
@@ -85,7 +84,7 @@ namespace ArcCreate.Gameplay.Render
                     true));
             }
 
-            tapDrawers[texture].RegisterInstance(matrix, color);
+            tapDrawers[texture].RegisterInstance(matrix, color, new Vector4(selected ? 1 : 0, 0, 0, 0));
         }
 
         public void DrawHold(Texture texture, Matrix4x4 matrix, Color color, bool selected, float from, bool highlight)
@@ -101,7 +100,7 @@ namespace ArcCreate.Gameplay.Render
                     true));
             }
 
-            holdDrawers[texture].RegisterInstance(matrix, color);
+            holdDrawers[texture].RegisterInstance(matrix, color, new Vector4(selected ? 1 : 0, 0, 0, 0));
         }
 
         public void DrawConnectionLine(Matrix4x4 matrix, Color color)
@@ -137,7 +136,7 @@ namespace ArcCreate.Gameplay.Render
 
         public void DrawArcShadow(Matrix4x4 matrix, Color color, Vector4 cornerOffset)
         {
-            arcShadowDrawer.RegisterInstance(matrix, color);
+            arcShadowDrawer.RegisterInstance(matrix, color, cornerOffset);
         }
 
         public void DrawTraceShadow(Matrix4x4 matrix, Color color)
@@ -150,7 +149,7 @@ namespace ArcCreate.Gameplay.Render
             (Color high, Color low) = Services.Skin.GetArcColor(colorId);
             color *= Color.Lerp(Color.Lerp(low, high, (y - 1) / 4.5f), Color.red, redValue);
             Vector4 properties = new Vector4(selected ? 1 : 0, highlight ? 1 : 0, 0, 0);
-            arcHeadDrawer.RegisterInstance(matrix, color);
+            arcHeadDrawer.RegisterInstance(matrix, color, property: properties);
         }
 
         public void DrawTraceHead(Matrix4x4 matrix, Color color, bool selected)
@@ -186,22 +185,24 @@ namespace ArcCreate.Gameplay.Render
 
         private static readonly int ArcTapColorProperty = Shader.PropertyToID("_ArcTapColor");
         
-        public void DrawArcTap(bool sfx, Texture texture, Matrix4x4 matrix, Color color, bool selected)
+        public void DrawArcTap(bool sfx, Texture texture, Matrix4x4 matrix, Color color, bool selected, bool overrideMaterialColor = false)
         {
+            var noAlpha = new Color(color.r, color.g, color.b, 1f);
+            
             var drawer = sfx ? arctapSfxDrawers : arctapDrawers;
-            if (!drawer.ContainsKey((texture, color)))
+            if (!drawer.ContainsKey((texture, noAlpha)))
             {
                 Material newArctap = Instantiate(baseArctapMaterial);
-                // if (colorOverride.HasValue) newArctap.SetColor(ArcTapColorProperty, c);
+                if (overrideMaterialColor) newArctap.SetColor(ArcTapColorProperty, noAlpha);
                 newArctap.mainTexture = texture;
                 generatedMaterials.Add(newArctap);
-                drawer.Add((texture, color), new InstancedRendererPool(
+                drawer.Add((texture, noAlpha), new InstancedRendererPool(
                     newArctap,
                     sfx ? arctapSfxMesh : arctapMesh,
                     true));
             }
 
-            drawer[(texture, color)].RegisterInstance(matrix, color, property: new Vector4(selected ? 1 : 0, 0, 0, 0));
+            drawer[(texture, noAlpha)].RegisterInstance(matrix, color, property: new Vector4(selected ? 1 : 0, 0, 0, 0));
         }
 
         public void DrawArcTapShadow(Matrix4x4 matrix, Color color)
@@ -238,7 +239,7 @@ namespace ArcCreate.Gameplay.Render
                     traceSegmentDrawers.Add(call.Color, GetNewTraceDrawer(Services.Skin.GetTraceMaterial(), call.OverrideMaterialColor ? call.Color : null));
                 }
                 
-                traceSegmentDrawers[call.Color].RegisterInstance(call.Matrix, call.Color);
+                traceSegmentDrawers[call.Color].RegisterInstance(call.Matrix, call.Color, property: call.Properties);
             }
 
             foreach (var pool in traceSegmentDrawers.Values) pool.Draw(notesCamera, layer);
@@ -258,7 +259,8 @@ namespace ArcCreate.Gameplay.Render
             {
                 arcSegmentDrawer.RegisterInstance(
                     call.Matrix,
-                    call.Color);
+                    call.Color,
+                    property: call.Properties);
             }
 
             arcSegmentDrawer.Draw(notesCamera, layer);

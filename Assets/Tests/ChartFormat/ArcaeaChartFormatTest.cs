@@ -120,7 +120,7 @@ namespace Tests.Unit
             var (e, _) = reader.ParseTimingGroup(evt, 0);
 
             Assert.That(e.NoInput, Is.True);
-            Assert.That(e.AngleY, Is.EqualTo(30));
+            Assert.That(e.AngleY, Is.EqualTo(-30));
         }
 
         [TestCase("gimmick-timinggroup")]
@@ -134,7 +134,7 @@ namespace Tests.Unit
             var (e, _) = reader.ParseTimingGroup(evt, 0);
 
             Assert.That(e.NoInput, Is.True);
-            Assert.That(e.AngleY, Is.EqualTo(30));
+            Assert.That(e.AngleY, Is.EqualTo(-30));
 
             // `gimmick` is not parsed into tg's name
             // it's just an identifier for the charter

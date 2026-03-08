@@ -119,8 +119,12 @@ String
     | DQUOTE ~["]* DQUOTE
     ;
 
-Word
-    : (SHARP | UNDERLINE | ALPHABET) (
+fragment WORD_HEAD // Word must starts with '#', '_' or an Alpha
+    : (SHARP | UNDERLINE | ALPHABET)
+    ;
+
+fragment WORD_BODY
+    : (
         SHARP
         | UNDERLINE
         | ALPHABET
@@ -129,8 +133,16 @@ Word
         | SLASH
         | BSLASH
         | NEGATIVE
-        | SPACE
-    )*
+        | SPACE // space can only be in the middle part of the Word
+    )
+    ;
+
+fragment WORD_TAIL // space is not allowed as ending
+    : (SHARP | UNDERLINE | ALPHABET | DIGIT | DOT | SLASH | BSLASH | NEGATIVE)
+    ;
+
+Word
+    : WORD_HEAD (WORD_BODY* WORD_TAIL)?
     ;
 
 Int

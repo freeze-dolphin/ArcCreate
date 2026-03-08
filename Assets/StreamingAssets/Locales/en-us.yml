@@ -644,6 +644,7 @@ Compose:
     Project:
       Label:
         NewChart: New Chart
+        ImportChart: Import Chart
         NewProject: New Project
         ProjectFile: Project File
         ChartFile: Chart file

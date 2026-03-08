@@ -203,7 +203,7 @@ namespace ArcCreate.Gameplay.Data
                 alpha *= Values.MaxArcAlpha;
             }
 
-            Color color = groupProperties.Color;
+            Color color = TraceColor ?? groupProperties.Color;
             color.a *= Mathf.Min(alpha, arcGroupAlpha);
 
             int clipToTiming;
@@ -260,7 +260,7 @@ namespace ArcCreate.Gameplay.Data
 
                 if (IsTrace)
                 {
-                    Services.Render.DrawTraceSegment(matrix * bodyMatrix, TraceColor ?? color, IsSelected, depth, TraceColor.HasValue);
+                    Services.Render.DrawTraceSegment(matrix * bodyMatrix, color, IsSelected, depth, TraceColor.HasValue);
                     if (!groupProperties.NoShadow)
                     {
                         Services.Render.DrawTraceShadow(matrix * shadowMatrix, color);
