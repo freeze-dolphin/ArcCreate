@@ -1,3 +1,4 @@
+using ArcCreate.ChartFormat;
 using ArcCreate.Gameplay.Chart;
 
 namespace ArcCreate.Gameplay.Data
@@ -12,7 +13,7 @@ namespace ArcCreate.Gameplay.Data
         /// <summary>
         /// Gets or sets the note's timing.
         /// </summary>
-        public int Timing { get; set; }
+        public ExpressionValue<int> Timing { get; set; } = 0;
 
         /// <summary>
         /// Gets or sets the note's timing group.

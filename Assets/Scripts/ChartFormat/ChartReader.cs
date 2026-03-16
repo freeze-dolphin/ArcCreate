@@ -75,7 +75,7 @@ namespace ArcCreate.ChartFormat
             bool foundBaseTiming = false;
             foreach (var ev in Events)
             {
-                if (ev is RawTiming && ev.TimingGroup == 0 && ev.Timing == 0)
+                if (ev is RawTiming && ev.TimingGroup == 0 && ev.Timing.GetValueOrEval() == 0)
                 {
                     foundBaseTiming = true;
                     break;

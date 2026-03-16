@@ -69,8 +69,8 @@ namespace ArcCreate.Compose.Rendering
             IEnumerable<Arc> arcs = chart.GetAll<Arc>().Where((n) => n.Timing >= startRange && n.Timing <= endRange && n.Timing < n.EndTiming && !n.IsTrace && !n.NoInput);
             IEnumerable<ArcTap> arctaps = chart.GetAll<ArcTap>().Where((n) => n.Timing >= startRange && n.Timing <= endRange && !n.NoInput);
 
-            HashSet<int> tapSoundTimings = new HashSet<int>(taps.Select(n => n.Timing).Union(holds.Select(h => h.Timing)));
-            HashSet<int> arcSoundTimings = new HashSet<int>(arcs.Select(a => a.Timing));
+            HashSet<int> tapSoundTimings = new HashSet<int>(taps.Select(n => n.Timing.GetValueOrEval()).Union(holds.Select(h => h.Timing.GetValueOrEval())));
+            HashSet<int> arcSoundTimings = new HashSet<int>(arcs.Select(a => a.Timing.GetValueOrEval()));
 
             foreach (ArcTap at in arctaps)
             {

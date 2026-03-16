@@ -146,7 +146,7 @@ namespace ArcCreate.ChartFormat
             var validation = FinalValidity();
             if (validation.IsError) errors.Add(validation.Error);
 
-            Events.Sort((a, b) => a.Timing.CompareTo(b.Timing));
+            Events.Sort((a, b) => a.Timing.GetValueOrEval().CompareTo(b.Timing.GetValueOrEval()));
 
             return errors.Count > 0
                 ? new ChartFileErrors(FileName, errors)
@@ -261,14 +261,14 @@ namespace ArcCreate.ChartFormat
             validator.Require(evt.Values.Count == 2);
             validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
 
-            float lane;
-            if (evt.Values[1].TryGetIntegerValue(out int intLane))
+            ExpressionValue<float> lane;
+            if (evt.Values[1].TryGetIntegerValue(out var intLane))
             {
-                lane = intLane;
+                lane = intLane.Cast<float>();
             }
             else
             {
-                validator.Require(evt.Values[1].TryGetAlgebraicValue(out double floatedLane));
+                validator.Require(evt.Values[1].TryGetAlgebraicValue(out var floatedLane));
                 lane = (float)ParsingFormula.ArcaeaFloatedLaneToLane(floatedLane);
             }
 
@@ -290,14 +290,14 @@ namespace ArcCreate.ChartFormat
             validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
             validator.Require(evt.Values[1].TryGetIntegerValue(out var endTick));
 
-            float lane;
-            if (evt.Values[2].TryGetIntegerValue(out int intLane))
+            ExpressionValue<float> lane;
+            if (evt.Values[2].TryGetIntegerValue(out var intLane))
             {
-                lane = intLane;
+                lane = intLane.Cast<float>();;
             }
             else
             {
-                validator.Require(evt.Values[2].TryGetAlgebraicValue(out double floatedLane));
+                validator.Require(evt.Values[2].TryGetAlgebraicValue(out var floatedLane));
                 lane = (float)ParsingFormula.ArcaeaFloatedLaneToLane(floatedLane);
             }
 
@@ -338,7 +338,7 @@ namespace ArcCreate.ChartFormat
             if (endTick < tick)
                 throw new ChartReaderException(evt.Raw, RawEventType.Arc, evt, ChartError.Kind.DurationNegative);
 
-            double arcResolution = 1.0;
+            ExpressionValue<double> arcResolution = 1.0;
             if (!(evt.Properties.TryGetValue(RawArc.PropertyArcResolutionKey, out var arcResolutionRaw) &&
 
                   // try get arcResolution from properties first

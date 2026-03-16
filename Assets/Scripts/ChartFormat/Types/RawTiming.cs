@@ -2,8 +2,8 @@ namespace ArcCreate.ChartFormat
 {
     public class RawTiming : RawEvent
     {
-        public float Bpm { get; set; }
+        public ExpressionValue<float> Bpm { get; set; }
 
-        public float Divisor { get; set; }
+        public ExpressionValue<float> Divisor { get; set; }
     }
 }

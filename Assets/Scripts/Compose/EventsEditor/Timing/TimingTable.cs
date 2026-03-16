@@ -24,7 +24,7 @@ namespace ArcCreate.Compose.EventsEditor
             {
                 base.Selected = value;
                 marker.gameObject.SetActive(value != null);
-                removeButton.interactable = Selected?.Timing != 0;
+                removeButton.interactable = Selected?.Timing?.GetValueOrEval() != 0;
                 UpdateMarker();
             }
         }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
+using ArcCreate.ChartFormat;
 using ArcCreate.Gameplay.Judgement;
 using ArcCreate.Gameplay.Utility;
 using UnityEngine;
@@ -26,21 +27,21 @@ namespace ArcCreate.Gameplay.Data
         // Avoid infinite recursion
         private bool recursivelyCalled = false;
 
-        public float XStart { get; set; }
+        public ExpressionValue<float> XStart { get; set; }
 
-        public float YStart { get; set; }
+        public ExpressionValue<float> YStart { get; set; }
 
-        public float XEnd { get; set; }
+        public ExpressionValue<float> XEnd { get; set; }
 
-        public float YEnd { get; set; }
+        public ExpressionValue<float> YEnd { get; set; }
 
-        public int Color { get; set; }
+        public ExpressionValue<int> Color { get; set; }
 
         public bool IsTrace { get; set; }
 
         public string Sfx { get; set; }
 
-        public float ArcResolution { get; set; }
+        public ExpressionValue<float> ArcResolution { get; set; }
 
         public Color? TraceColor { get; set; }
 
@@ -69,7 +70,7 @@ namespace ArcCreate.Gameplay.Data
         {
             get
             {
-                var res = !Mathf.Approximately(ArcResolution, 1f)
+                float res = !Mathf.Approximately(ArcResolution, 1f)
                     ? ArcResolution
                     : TimingGroupInstance.GroupProperties.ArcResolution;
                 

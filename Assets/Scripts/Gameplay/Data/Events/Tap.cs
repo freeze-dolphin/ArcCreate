@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using ArcCreate.ChartFormat;
 using ArcCreate.Gameplay.Judgement;
 using ArcCreate.Utility.Extension;
 using UnityEngine;
@@ -14,7 +15,7 @@ namespace ArcCreate.Gameplay.Data
 
         public HashSet<ArcTap> ConnectedArcTaps { get; } = new HashSet<ArcTap>();
 
-        public float Lane { get; set; }
+        public ExpressionValue<float> Lane { get; set; }
 
         public override ArcEvent Clone()
         {

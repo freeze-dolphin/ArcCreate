@@ -20,8 +20,8 @@ namespace ArcCreate.ChartFormat.Grammar
         public int ColumnNumber { get; }
 
         public Option<string> StringValue { private get; set; } = Option<string>.None();
-        public Option<double> AlgebraicValue { private get; set; } = Option<double>.None();
-        public Option<int> IntegerValue { private get; set; } = Option<int>.None();
+        public Option<ExpressionValue<double>> AlgebraicValue { private get; set; } = Option<ExpressionValue<double>>.None();
+        public Option<ExpressionValue<int>> IntegerValue { private get; set; } = Option<ExpressionValue<int>>.None();
 
         public Option<Tuple<string, AntlrValue>> KeyValuePair { private get; set; } =
             Option<Tuple<string, AntlrValue>>.None();
@@ -53,13 +53,13 @@ namespace ArcCreate.ChartFormat.Grammar
                 StringValue = value
             };
 
-        public static AntlrValue FromAlgebraic(string raw, double value, int lineNumber, int columnNumber) =>
+        public static AntlrValue FromAlgebraic(string raw, ExpressionValue<double> value, int lineNumber, int columnNumber) =>
             new(raw, AntlrValueType.Algebraic, lineNumber, columnNumber)
             {
                 AlgebraicValue = value,
             };
 
-        public static AntlrValue FromInteger(string raw, int value, int lineNumber, int columnNumber) =>
+        public static AntlrValue FromInteger(string raw, ExpressionValue<int> value, int lineNumber, int columnNumber) =>
             new(raw, AntlrValueType.Integer, lineNumber, columnNumber)
             {
                 IntegerValue = value,
@@ -95,7 +95,7 @@ namespace ArcCreate.ChartFormat.Grammar
             return IsStringValue;
         }
 
-        public bool TryGetAlgebraicValue(out double algebraicValue)
+        public bool TryGetAlgebraicValue(out ExpressionValue<double> algebraicValue)
         {
             bool success = IsAlgebraicValue;
             algebraicValue = AlgebraicValue.Value;
@@ -103,13 +103,13 @@ namespace ArcCreate.ChartFormat.Grammar
             if (!success)
             {
                 success = IsIntegerValue;
-                algebraicValue = IntegerValue.Value;
+                algebraicValue = IntegerValue.Value.Cast<double>();
             }
 
             return success;
         }
 
-        public bool TryGetIntegerValue(out int integerValue)
+        public bool TryGetIntegerValue(out ExpressionValue<int> integerValue)
         {
             integerValue = IntegerValue.Value;
             return IsIntegerValue;
@@ -125,8 +125,8 @@ namespace ArcCreate.ChartFormat.Grammar
             Type switch
             {
                 AntlrValueType.String => $"Value(String, \"{StringValue.Value}\")",
-                AntlrValueType.Algebraic => $"Value(Algebraic, {AlgebraicValue.Value})",
-                AntlrValueType.Integer => $"Value(Integer, {IntegerValue.Value})",
+                AntlrValueType.Algebraic => $"Value(Algebraic, {AlgebraicValue.Value.GetValueOrEval()})",
+                AntlrValueType.Integer => $"Value(Integer, {IntegerValue.Value.GetValueOrEval()})",
                 AntlrValueType.KeyValuePair => $"Value(KeyValuePair, {KeyValuePair.Value.Item1} → ...)",
                 _ => "Value(unknown)"
             };

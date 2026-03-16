@@ -221,7 +221,7 @@ namespace ArcCreate.ChartFormat
             var validation = FinalValidity();
             if (validation.IsError) errors.Add(validation.Error);
 
-            Events.Sort((a, b) => a.Timing.CompareTo(b.Timing));
+            Events.Sort((a, b) => a.Timing.GetValueOrEval().CompareTo(b.Timing.GetValueOrEval()));
 
             return errors.Count > 0
                 ? new ChartFileErrors(FileName, errors)
@@ -462,7 +462,7 @@ namespace ArcCreate.ChartFormat
             {
                 Type = RawEventType.Tap,
                 Timing = tick,
-                Lane = (float)lane,
+                Lane = lane.Cast<float>(),
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber
             };
@@ -488,7 +488,7 @@ namespace ArcCreate.ChartFormat
                 Type = RawEventType.Hold,
                 Timing = tick,
                 EndTiming = endTick,
-                Lane = (float)track,
+                Lane = track.Cast<float>(),
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber
             };
@@ -508,8 +508,8 @@ namespace ArcCreate.ChartFormat
             {
                 Type = RawEventType.Timing,
                 Timing = tick,
-                Divisor = (float)divisor,
-                Bpm = (float)bpm,
+                Divisor = divisor.Cast<float>(),
+                Bpm = bpm.Cast<float>(),
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber
             };
@@ -535,7 +535,7 @@ namespace ArcCreate.ChartFormat
             if (endTick < tick)
                 throw new ChartReaderException(evt.Raw, RawEventType.Arc, evt, ChartError.Kind.DurationNegative);
 
-            double arcResolution = 1.0;
+            ExpressionValue<double> arcResolution = 1.0;
             if (!(evt.Properties.TryGetValue(RawArc.PropertyArcResolutionKey, out var arcResolutionRaw) &&
 
                   // try get arcResolution from properties first
@@ -559,18 +559,18 @@ namespace ArcCreate.ChartFormat
                 Type = RawEventType.Arc,
                 Timing = tick,
                 EndTiming = endTick,
-                XStart = (float)xStart,
-                XEnd = (float)xEnd,
+                XStart = xStart.Cast<float>(),
+                XEnd = xEnd.Cast<float>(),
                 LineType = lineType,
-                YStart = (float)yStart,
-                YEnd = (float)yEnd,
+                YStart = yStart.Cast<float>(),
+                YEnd = yEnd.Cast<float>(),
                 Color = color,
                 IsTrace = isTrace,
                 ArcTaps = evt.SubEvents.Select(x => ParseArcTap(x, timingGroup, tick, endTick)).ToList(),
                 Sfx = hitSound,
                 TimingGroup = timingGroup,
                 Line = evt.LineNumber,
-                ArcResolution = (float)arcResolution
+                ArcResolution = arcResolution.Cast<float>()
             };
 
             if (hasStainedColor)
@@ -597,7 +597,7 @@ namespace ArcCreate.ChartFormat
                 throw new ChartReaderException(evt.Raw, RawEventType.ArcTap, evt, ChartError.Kind.ArcTapOutOfRange);
             }
 
-            double width = 1;
+            ExpressionValue<double> width = 1;
             if (evt.Values.Count >= 2) evt.Values[1].TryGetAlgebraicValue(out width);
 
             return new RawArcTap
@@ -605,7 +605,7 @@ namespace ArcCreate.ChartFormat
                 Type = RawEventType.ArcTap,
                 Timing = tick,
                 TimingGroup = timingGroup,
-                Width = (float)width,
+                Width = width.Cast<float>(),
                 Line = evt.LineNumber,
                 CharacterStart = evt.ColumnNumber,
                 Length = evt.Raw.Length
@@ -679,8 +679,12 @@ namespace ArcCreate.ChartFormat
                 TimingGroup = timingGroup,
                 Timing = tick,
                 Duration = duration,
-                Move = new Vector3((float)mx, (float)my, (float)mz),
-                Rotate = new Vector3((float)rx, (float)ry, (float)rz),
+                MoveX = mx.Cast<float>(),
+                MoveY = my.Cast<float>(),
+                MoveZ = mz.Cast<float>(),
+                RotateX = rx.Cast<float>(),
+                RotateY = ry.Cast<float>(),
+                RotateZ = rz.Cast<float>(),
                 CameraType = type,
                 Line = evt.LineNumber
             };
@@ -758,19 +762,27 @@ namespace ArcCreate.ChartFormat
 
             foreach (RawEvent e in extReader.Events)
             {
-                if (!(e is RawTiming && e.Timing == 0))
+                if (!(e is RawTiming && e.Timing.GetValueOrEval() == 0))
                 {
-                    e.Timing += fragment.Timing;
+                    e.Timing = e.Timing.GetValueOrEval() + fragment.Timing.GetValueOrEval();
                 }
 
-                if (e is RawHold)
+                if (e is RawHold hold)
                 {
-                    (e as RawHold).EndTiming += fragment.Timing;
+                    hold.EndTiming = hold.EndTiming.GetValueOrEval() + fragment.Timing.GetValueOrEval();
                 }
 
-                if (e is RawArc)
+                if (e is RawArc arc)
                 {
-                    (e as RawArc).EndTiming += fragment.Timing;
+                    arc.EndTiming = arc.EndTiming.GetValueOrEval() + fragment.Timing.GetValueOrEval();
+
+                    if (arc.ArcTaps.Count > 0)
+                    {
+                        foreach (var arcArcTap in arc.ArcTaps)
+                        {
+                            arcArcTap.Timing  = arcArcTap.Timing.GetValueOrEval() + fragment.Timing.GetValueOrEval();
+                        }
+                    }
                 }
             }
 

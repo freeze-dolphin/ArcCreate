@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using ArcCreate.ChartFormat;
 using ArcCreate.ChartFormat.Grammar;
@@ -112,9 +113,9 @@ namespace Tests.Unit
         {
             var evt = ParseEvents(
                 "arc(78000,82800,0.50,0.50,s,0.00,0.00,0,none,true)[arctap(82200)]< tracecolor: #F02961 >;")[0];
-            
+
             var e = reader.ParseArc(evt, 0);
-            
+
             Assert.True(e.TraceColor.HasValue);
             Assert.True(ColorEqualityComparer.Instance.Equals(e.TraceColor.Value, new Color32(240, 41, 97, 255)));
         }
@@ -319,16 +320,21 @@ namespace Tests.Unit
             Assert.That(frag.File, Is.EqualTo(UniversalChartVisitor.TrimQuotes(path)));
         }
 
-        [TestCase(1000, "`randint(1, 4)`")]
-        public void Random(int timing, string lane)
+        [Test]
+        public void Random()
         {
-            Assert.Fail("NotImplemented");
+            var events = ParseEvents(string.Concat(Enumerable.Repeat("tap(1000,`rand(4, 6, t)`);", 10)));
+            var taps = events.Select(x => reader.ParseTap(x, 0)).ToList();
+            var lanes = taps.Select(x => x.Lane.GetValueOrEval()).ToArray();
 
-            var evt = ParseEvents($"tap({timing},{lane});")[0];
+            Debug.Log(ArcCreateChartFileWriter.Instance.WriteToString(0, 1, new (RawTimingGroup properties, IEnumerable<RawEvent> events)[]
+            {
+                (new RawTimingGroup(), new List<RawEvent> { taps[0] })
+            }));
 
-            RawTap e = reader.ParseTap(evt, 0);
-            Assert.That(e.Timing, Is.EqualTo(timing));
-            Assert.That(e.Lane, Is.EqualTo(lane));
+            Assert.True(taps.All(x => x.Timing == 1000));
+            Assert.True(lanes.All(x => x is >= 4 and <= 6));
+            Assert.True(lanes.Distinct().Count() == 10);
         }
     }
 }

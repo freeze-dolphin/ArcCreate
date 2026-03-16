@@ -17,7 +17,7 @@ namespace ArcCreate.Gameplay.Chart
 
         public override int ComboAt(int timing)
         {
-            return timingSearch.List.BisectRight(timing, note => note.Timing);
+            return timingSearch.List.BisectRight(timing, note => note.Timing.GetValueOrEval());
         }
 
         public override void UpdateJudgement(int timing, double floorPosition, GroupProperties groupProperties)
@@ -96,7 +96,7 @@ namespace ArcCreate.Gameplay.Chart
                 yield break;
             }
 
-            int i = timingSearch.List.BisectLeft(from, n => n.Timing);
+            int i = timingSearch.List.BisectLeft(from, n => n.Timing.GetValueOrEval());
 
             while (i >= 0 && i < timingSearch.List.Count && timingSearch.List[i].Timing >= from && timingSearch.List[i].Timing <= to)
             {

@@ -93,8 +93,12 @@ namespace ArcCreate.Gameplay.Data
                             {
                                 TimingGroup = camera.TimingGroup,
                                 Timing = camera.Timing,
-                                Move = camera.Move,
-                                Rotate = camera.Rotate,
+                                MoveX = camera.MoveX,
+                                MoveY = camera.MoveY,
+                                MoveZ = camera.MoveZ,
+                                RotateX =  camera.RotateX,
+                                RotateY =  camera.RotateY,
+                                RotateZ =  camera.RotateZ,
                                 CameraType = camera.CameraType.ToCameraType(),
                                 Duration = camera.Duration,
                             });

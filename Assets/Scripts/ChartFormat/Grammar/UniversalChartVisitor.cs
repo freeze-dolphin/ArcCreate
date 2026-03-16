@@ -12,14 +12,6 @@ namespace ArcCreate.ChartFormat.Grammar
 {
     public class UniversalChartVisitor : UniversalAffChartBaseVisitor<object>
     {
-        public UniversalChartVisitor()
-        {
-            ExprStringEngine.AddFunction("randint",
-                (min, max) => (int)Random.Range((float)min, (float)max));
-            ExprStringEngine.AddFunction("rand",
-                (min, max) => Random.Range((float)min, (float)max));
-        }
-
         public static string TrimQuotes(string raw) =>
             raw.Length >= 2 && (raw[0] == '\'' || raw[0] == '"') && raw[0] == raw[^1]
                 ? raw[1..^1]
@@ -34,11 +26,6 @@ namespace ArcCreate.ChartFormat.Grammar
             return VisitBodyTyped(context.body());
         }
 
-        private static readonly CalculationEngine ExprStringEngine =
-            new(CultureInfo.CurrentCulture, ExecutionMode.Interpreted);
-
-        private readonly Dictionary<string, double> exprStringCalculationVariables = new();
-
         public AntlrValue VisitValueTyped(UniversalAffChartParser.ValueContext context) =>
             (AntlrValue)VisitValue(context);
 
@@ -50,13 +37,15 @@ namespace ArcCreate.ChartFormat.Grammar
                 var raw = context.ExprString().GetText();
                 var content = raw.Trim('`');
 
-                if (!Evaluator.TryFloat(content, out float eval, ExprStringEngine))
+                ExpressionValue<double> expr = content;
+                
+                if (!expr.TryGetValueOrEval(out var eval))
                 {
                     throw new AntlrParseException($"Unable to evaluate expression: {context.GetText()}",
                         context.GetText(), RawEventType.AntlrValue, context.Start);
                 }
 
-                return AntlrValue.FromAlgebraic(raw, eval, context.Start.Line, context.Start.Column);
+                return AntlrValue.FromAlgebraic(raw, expr, context.Start.Line, context.Start.Column);
             }
 
             if (context.Word() != null && context.Equal() != null && context.value() != null)
