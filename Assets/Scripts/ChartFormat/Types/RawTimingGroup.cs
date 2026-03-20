@@ -34,19 +34,7 @@ namespace ArcCreate.ChartFormat
 
         public float ArcResolution { get; set; } = 1;
 
-        private float dropRate = 0;
-
-        /// <summary>
-        /// Gets or sets the drop rate for notes within the timing group.
-        /// If a serialized drop rate is explicitly set and non-zero, it takes precedence over the default drop rate.
-        /// </summary>
-        public float DropRate
-        {
-            get => DropRateSerialized != 0 ? DropRateSerialized : dropRate;
-            set => dropRate = value;
-        }
-
-        public float DropRateSerialized { get; set; } = 0;
+        public float DropRate { get; set; } = 0;
 
         public float AngleX { get; set; } = 0;
 

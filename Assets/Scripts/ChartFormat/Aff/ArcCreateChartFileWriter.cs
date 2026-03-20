@@ -344,7 +344,7 @@ namespace ArcCreate.ChartFormat
                 opts.Add($"arcresolution={properties.ArcResolution:f1}");
 
             if (!Mathf.Approximately(properties.DropRate, 0))
-                opts.Add($"droprate={properties.DropRate:f1}");
+                opts.Add($"droprate={properties.DropRate:f2}");
 
             if (!Mathf.Approximately(properties.JudgementOffsetX, 0))
                 opts.Add($"judgeoffsetx={properties.JudgementOffsetX:f1}");
