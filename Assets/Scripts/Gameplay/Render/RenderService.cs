@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using ArcCreate.Gameplay.Utility;
 using UnityEngine;
 
@@ -9,8 +10,7 @@ namespace ArcCreate.Gameplay.Render
         [SerializeField] private Camera notesCamera;
         [SerializeField] private int layer;
 
-        [Header("Meshes")]
-        [SerializeField] private Mesh arctapMesh;
+        [Header("Meshes")] [SerializeField] private Mesh arctapMesh;
         [SerializeField] private Mesh arctapSfxMesh;
         [SerializeField] private Mesh arctapShadowMesh;
         [SerializeField] private Mesh tapMesh;
@@ -20,8 +20,7 @@ namespace ArcCreate.Gameplay.Render
         [SerializeField] private Mesh arcCapMesh;
         [SerializeField] private Mesh arcCapControllerMesh;
 
-        [Header("Materials")] 
-        [SerializeField] private Material baseArctapMaterial;
+        [Header("Materials")] [SerializeField] private Material baseArctapMaterial;
         [SerializeField] private Material baseTapMaterial;
         [SerializeField] private Material baseHoldMaterial;
         [SerializeField] private Material baseArcCapMaterial;
@@ -42,27 +41,27 @@ namespace ArcCreate.Gameplay.Render
         private readonly IComparer<ArcDrawCall> arcDrawCallComparer = new ArcDrawCallComparer();
         private InstancedRendererPool arcSegmentDrawer;
         private InstancedRendererPool arcHeadDrawer;
-        private readonly Dictionary<(Texture, Color), InstancedRendererPool> arcCapDrawers = new Dictionary<(Texture, Color), InstancedRendererPool>();
+
+        private readonly Dictionary<(Texture, Color), InstancedRendererPool> arcCapDrawers =
+            new Dictionary<(Texture, Color), InstancedRendererPool>();
+
         private InstancedRendererPool arcShadowDrawer;
         private readonly Dictionary<Color, InstancedRendererPool> traceSegmentDrawers = new();
         private readonly Dictionary<Color, InstancedRendererPool> traceHeadDrawers = new();
+        private InstancedRendererPool traceSegmentDrawerDefault;
+        private InstancedRendererPool traceHeadDrawerDefault;
         private InstancedRendererPool traceShadowDrawer;
         private InstancedRendererPool heightIndicatorDrawer;
 
         // Arctap
-        private readonly Dictionary<(Texture, Color), InstancedRendererPool> arctapDrawers = new Dictionary<(Texture, Color), InstancedRendererPool>();
-        private readonly Dictionary<(Texture, Color), InstancedRendererPool> arctapSfxDrawers = new Dictionary<(Texture, Color), InstancedRendererPool>();
+        private readonly Dictionary<(Texture, Color), InstancedRendererPool> arctapDrawers =
+            new Dictionary<(Texture, Color), InstancedRendererPool>();
+
+        private readonly Dictionary<(Texture, Color), InstancedRendererPool> arctapSfxDrawers =
+            new Dictionary<(Texture, Color), InstancedRendererPool>();
+
         private InstancedRendererPool arctapShadowDrawer;
 
-        /// <summary>
-        /// Represents a transparent color used as a default or fallback value for color overrides in rendering operations.
-        /// This color is utilized when a null color override is provided, ensuring that rendering calls have a valid color value.
-        /// The specific RGBA values are chosen to be visually transparent while maintaining a distinct identity for debugging purposes.
-        /// <br />
-        /// When this is provided, the material should use its default color instead (don't actually apply the transparent color to it, or it will be invisible)
-        /// </summary>
-        private readonly Color transparentColorPlaceholder = new Color32(255, 254, 253, 0);
-        
         public bool IsLoaded { get; private set; }
 
         public Mesh TapMesh => tapMesh;
@@ -108,7 +107,8 @@ namespace ArcCreate.Gameplay.Render
             connectionLineDrawer.RegisterInstance(matrix, color);
         }
 
-        public void DrawArcSegment(int colorId, bool highlight, Matrix4x4 matrix, Color color, bool selected, float redValue, float y, float depth)
+        public void DrawArcSegment(int colorId, bool highlight, Matrix4x4 matrix, Color color, bool selected, float redValue, float y,
+            float depth)
         {
             (Color high, Color low) = Services.Skin.GetArcColor(colorId);
             color *= Color.Lerp(Color.Lerp(low, high, (y - 1) / 4.5f), Color.red, redValue);
@@ -152,16 +152,23 @@ namespace ArcCreate.Gameplay.Render
             arcHeadDrawer.RegisterInstance(matrix, color, property: properties);
         }
 
-        public void DrawTraceHead(Matrix4x4 matrix, Color color, bool selected)
+        public void DrawTraceHead(Matrix4x4 matrix, Color color, bool selected, bool overrideMaterialColor = false)
         {
-            if (!traceHeadDrawers.ContainsKey(color))
+            if (!overrideMaterialColor)
             {
-                traceHeadDrawers.Add(color, GetNewTraceDrawer(Services.Skin.GetTraceMaterial(), color));
+                traceHeadDrawerDefault.RegisterInstance(matrix, color, new Vector4(selected ? 1 : 0, 0, 0, 0));
             }
-            
-            traceHeadDrawers[color].RegisterInstance(matrix, color, new Vector4(selected ? 1 : 0, 0, 0, 0));
+            else
+            {
+                if (!traceHeadDrawers.ContainsKey(color))
+                {
+                    traceHeadDrawers.Add(color, GetNewTraceDrawer(Services.Skin.GetTraceMaterial(), color));
+                }
+
+                traceHeadDrawers[color].RegisterInstance(matrix, color, new Vector4(selected ? 1 : 0, 0, 0, 0));
+            }
         }
-        
+
         public void DrawArcCap(Texture texture, Matrix4x4 matrix, Color color, bool isController)
         {
             if (!arcCapDrawers.ContainsKey((texture, color)))
@@ -184,11 +191,11 @@ namespace ArcCreate.Gameplay.Render
         }
 
         private static readonly int ArcTapColorProperty = Shader.PropertyToID("_ArcTapColor");
-        
+
         public void DrawArcTap(bool sfx, Texture texture, Matrix4x4 matrix, Color color, bool selected, bool overrideMaterialColor = false)
         {
             var noAlpha = new Color(color.r, color.g, color.b, 1f);
-            
+
             var drawer = sfx ? arctapSfxDrawers : arctapDrawers;
             if (!drawer.ContainsKey((texture, noAlpha)))
             {
@@ -234,18 +241,27 @@ namespace ArcCreate.Gameplay.Render
             queuedTraceDrawCalls.Sort(arcDrawCallComparer);
             foreach (var call in queuedTraceDrawCalls)
             {
-                if (!traceSegmentDrawers.ContainsKey(call.Color))
+                if (!call.OverrideMaterialColor)
                 {
-                    traceSegmentDrawers.Add(call.Color, GetNewTraceDrawer(Services.Skin.GetTraceMaterial(), call.OverrideMaterialColor ? call.Color : null));
+                    traceSegmentDrawerDefault.RegisterInstance(call.Matrix, call.Color, property: call.Properties);
+                    traceSegmentDrawerDefault.Draw(notesCamera, layer);
                 }
-                
-                traceSegmentDrawers[call.Color].RegisterInstance(call.Matrix, call.Color, property: call.Properties);
+                else
+                {
+                    if (!traceSegmentDrawers.ContainsKey(call.Color))
+                    {
+                        traceSegmentDrawers.Add(call.Color,
+                            GetNewTraceDrawer(Services.Skin.GetTraceMaterial(), call.OverrideMaterialColor ? call.Color : null));
+                    }
+
+                    traceSegmentDrawers[call.Color].RegisterInstance(call.Matrix, call.Color, property: call.Properties);
+                    traceSegmentDrawers[call.Color].Draw(notesCamera, layer);
+                }
             }
 
-            foreach (var pool in traceSegmentDrawers.Values) pool.Draw(notesCamera, layer);
             queuedTraceDrawCalls.Clear();
 
-            foreach (var pool in traceHeadDrawers.Values) pool.Draw(notesCamera, layer);
+            foreach (var pool in traceHeadDrawers.Values.Append(traceHeadDrawerDefault)) pool.Draw(notesCamera, layer);
             arctapShadowDrawer.Draw(notesCamera, layer);
 
             heightIndicatorDrawer.Draw(notesCamera, layer);
@@ -281,40 +297,38 @@ namespace ArcCreate.Gameplay.Render
 
         public void SetTraceMaterial(Material material)
         {
-            if (traceSegmentDrawers.TryGetValue(material.color, out var cachedSegmentPool))
-            {
-                cachedSegmentPool.Dispose();
-                traceSegmentDrawers[material.color] = GetNewTraceDrawer(material);
-            }
-            else traceSegmentDrawers.Add(material.color, GetNewTraceDrawer(material));
+            traceSegmentDrawerDefault?.Dispose();
+            traceSegmentDrawerDefault = new InstancedRendererPool(
+                material,
+                ArcMeshGenerator.GetSegmentMesh(true),
+                true);
 
-            if (traceHeadDrawers.TryGetValue(material.color, out var cachedHeadPool))
-            {
-                cachedHeadPool.Dispose();
-                traceHeadDrawers[material.color] = GetNewTraceDrawer(material);
-            }
-            else traceHeadDrawers.Add(material.color, GetNewTraceDrawer(material));
+            traceHeadDrawerDefault?.Dispose();
+            traceHeadDrawerDefault = new InstancedRendererPool(
+                material,
+                ArcMeshGenerator.GetHeadMesh(true),
+                true);
 
             UpdateLoadedState();
         }
-        
+
         private static readonly int TraceColorShaderId = Shader.PropertyToID("_TraceColor");
-        
-        private InstancedRendererPool GetNewTraceDrawer(Material mat, Color? matColor = null, int propertyId = int.MinValue)
+
+        private InstancedRendererPool GetNewTraceDrawer(Material mat, Color? matColor = null)
         {
             Material material;
-            
+
             if (matColor.HasValue)
             {
                 material = Instantiate(mat);
-                material.SetColor(propertyId == int.MinValue ? TraceColorShaderId : propertyId, matColor.Value);
+                material.SetColor(TraceColorShaderId, matColor.Value);
                 generatedMaterials.Add(material);
             }
             else
             {
                 material = mat;
             }
-            
+
             return new InstancedRendererPool(
                 material,
                 ArcMeshGenerator.GetSegmentMesh(true),
@@ -383,15 +397,15 @@ namespace ArcCreate.Gameplay.Render
         private void UpdateLoadedState()
         {
             IsLoaded = connectionLineDrawer != null
-                    && arcSegmentDrawer != null
-                    && arcHeadDrawer != null
-                    && traceSegmentDrawers != null
-                    && traceHeadDrawers != null
-                    && arcShadowDrawer != null
-                    && traceShadowDrawer != null
-                    && connectionLineDrawer != null
-                    && heightIndicatorDrawer != null
-                    && arctapShadowDrawer != null;
+                       && arcSegmentDrawer != null
+                       && arcHeadDrawer != null
+                       && traceSegmentDrawers != null
+                       && traceHeadDrawers != null
+                       && arcShadowDrawer != null
+                       && traceShadowDrawer != null
+                       && connectionLineDrawer != null
+                       && heightIndicatorDrawer != null
+                       && arctapShadowDrawer != null;
         }
 
         private void Awake()
@@ -430,9 +444,12 @@ namespace ArcCreate.Gameplay.Render
 
             foreach (var instancedRendererPool in traceSegmentDrawers.Values) instancedRendererPool?.Dispose();
             traceSegmentDrawers.Clear();
-            
+
             foreach (var instancedRendererPool in traceHeadDrawers.Values) instancedRendererPool?.Dispose();
             traceHeadDrawers.Clear();
+
+            traceSegmentDrawerDefault.Dispose();
+            traceHeadDrawerDefault.Dispose();
             
             arctapShadowDrawer.Dispose();
 

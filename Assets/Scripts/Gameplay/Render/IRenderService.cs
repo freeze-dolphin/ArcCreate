@@ -33,7 +33,7 @@ namespace ArcCreate.Gameplay.Render
 
         void DrawTap(Texture texture, Matrix4x4 matrix, Color color, bool selected);
 
-        void DrawTraceHead(Matrix4x4 matrix, Color color, bool selected);
+        void DrawTraceHead(Matrix4x4 matrix, Color color, bool selected, bool overrideMaterialColor = false);
 
         void DrawTraceSegment(Matrix4x4 matrix, Color color, bool selected, float depth, bool overrideMaterialColor = false);
 
