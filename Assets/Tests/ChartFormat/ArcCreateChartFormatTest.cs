@@ -318,17 +318,5 @@ namespace Tests.Unit
             Assert.That(frag.Timing, Is.EqualTo(1000));
             Assert.That(frag.File, Is.EqualTo(UniversalChartVisitor.TrimQuotes(path)));
         }
-
-        [TestCase(1000, "`randint(1, 4)`")]
-        public void Random(int timing, string lane)
-        {
-            Assert.Fail("NotImplemented");
-
-            var evt = ParseEvents($"tap({timing},{lane});")[0];
-
-            RawTap e = reader.ParseTap(evt, 0);
-            Assert.That(e.Timing, Is.EqualTo(timing));
-            Assert.That(e.Lane, Is.EqualTo(lane));
-        }
     }
 }

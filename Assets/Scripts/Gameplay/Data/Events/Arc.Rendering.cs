@@ -40,7 +40,7 @@ namespace ArcCreate.Gameplay.Data
 
         public string Sfx { get; set; }
 
-        public float ArcResolution { get; set; }
+        public float ArcResolution { get; set; } = 1f;
 
         public Color? TraceColor { get; set; }
 
@@ -458,7 +458,6 @@ namespace ArcCreate.Gameplay.Data
 
                     segment.Timing = timing;
                     segment.EndTiming = cappedEndTiming;
-                    segment.TimingGroup = TimingGroup;
                     segment.FloorPosition = lastEndFloorPosition;
                     segment.StartPosition = lastPosition - basePosition;
 
