@@ -293,7 +293,7 @@ namespace ArcCreate.ChartFormat
             ExpressionValue<float> lane;
             if (evt.Values[2].TryGetIntegerValue(out var intLane))
             {
-                lane = intLane.Cast<float>();;
+                lane = intLane.Cast<float>();
             }
             else
             {
@@ -339,13 +339,9 @@ namespace ArcCreate.ChartFormat
                 throw new ChartReaderException(evt.Raw, RawEventType.Arc, evt, ChartError.Kind.DurationNegative);
 
             ExpressionValue<double> arcResolution = 1.0;
-            if (!(evt.Properties.TryGetValue(RawArc.PropertyArcResolutionKey, out var arcResolutionRaw) &&
-
-                  // try get arcResolution from properties first
-                  arcResolutionRaw.TryGetAlgebraicValue(out arcResolution)) &&
-                evt.Values.Count >= 11)
+            if (evt.Values.Count >= 11)
             {
-                // if not presented in properties, try parse from Arc parameters
+                // try parse from Arc parameters
                 evt.Values[10].TryGetAlgebraicValue(out arcResolution);
             }
 
@@ -425,10 +421,7 @@ namespace ArcCreate.ChartFormat
 
             void TryApplyDesignant(RawArc rawArc, bool shouldApply)
             {
-                if (shouldApply)
-                {
-                    rawArc.TraceColor = DesignantColor;
-                }
+                rawArc.TraceColor = shouldApply ? DesignantColor : null;
             }
         }
 

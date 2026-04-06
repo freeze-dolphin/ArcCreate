@@ -209,14 +209,14 @@ namespace ArcCreate.ChartFormat
         {
             List<string> serialized = new();
 
-            if (!Mathf.Approximately(arc.ArcResolution, 1))
+            if (arc.ArcResolution.IsExpr || !Mathf.Approximately(arc.ArcResolution, 1))
             {
-                serialized.Add($"{RawArc.PropertyArcResolutionKey}: {arc.ArcResolution:f2}");
+                serialized.Add($"arcresolution: {arc.ArcResolution:f2}");
             }
 
-            if (arc.TryGetTraceColor(out var arcStainedColor))
+            if (arc.TraceColor.HasValue)
             {
-                serialized.Add($"{RawArc.PropertyTraceColorKey}: #{ColorUtility.ToHtmlStringRGB(arcStainedColor)}");
+                serialized.Add($"tracecolor: #{ColorUtility.ToHtmlStringRGB(arc.TraceColor.Value)}");
             }
 
             return serialized.Count > 0 ? $"< {string.Join(", ", serialized)} >" : "";

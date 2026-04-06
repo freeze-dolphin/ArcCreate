@@ -98,9 +98,12 @@ namespace ArcCreate.ChartFormat.Grammar
         public bool TryGetAlgebraicValue(out ExpressionValue<double> algebraicValue)
         {
             bool success = IsAlgebraicValue;
-            algebraicValue = AlgebraicValue.Value;
 
-            if (!success)
+            if (success)
+            {
+                algebraicValue = AlgebraicValue.Value;
+            }
+            else
             {
                 success = IsIntegerValue;
                 algebraicValue = IntegerValue.Value.Cast<double>();

@@ -536,8 +536,7 @@ namespace ArcCreate.ChartFormat
                 throw new ChartReaderException(evt.Raw, RawEventType.Arc, evt, ChartError.Kind.DurationNegative);
 
             ExpressionValue<double> arcResolution = 1.0;
-            if (!(evt.Properties.TryGetValue(RawArc.PropertyArcResolutionKey, out var arcResolutionRaw) &&
-
+            if (!(evt.Properties.TryGetValue("arcresolution", out var arcResolutionRaw) && 
                   // try get arcResolution from properties first
                   arcResolutionRaw.TryGetAlgebraicValue(out arcResolution)) &&
                 evt.Values.Count >= 11)
@@ -548,9 +547,9 @@ namespace ArcCreate.ChartFormat
 
             Color stainedColor = Color.black;
             bool hasStainedColor =
-                evt.Properties.TryGetValue(RawArc.PropertyTraceColorKey, out var stainedColorRaw) &&
+                evt.Properties.TryGetValue("tracecolor", out var stainedColorRaw) &&
                 stainedColorRaw.TryGetStringValue(out string stainedColorStr) &&
-                ColorUtility.TryParseHtmlString(stainedColorStr, out stainedColor);
+                ColorUtility.TryParseHtmlString("#" + stainedColorStr.TrimStart('#'), out stainedColor);
 
             var isTrace = arcType is "true" or "designant";
 
@@ -573,10 +572,7 @@ namespace ArcCreate.ChartFormat
                 ArcResolution = arcResolution.Cast<float>()
             };
 
-            if (hasStainedColor)
-            {
-                arc.TraceColor = stainedColor;
-            }
+            arc.TraceColor = hasStainedColor ? stainedColor : null;
 
             return arc;
         }
@@ -780,7 +776,7 @@ namespace ArcCreate.ChartFormat
                     {
                         foreach (var arcArcTap in arc.ArcTaps)
                         {
-                            arcArcTap.Timing  = arcArcTap.Timing.GetValueOrEval() + fragment.Timing.GetValueOrEval();
+                            arcArcTap.Timing = arcArcTap.Timing.GetValueOrEval() + fragment.Timing.GetValueOrEval();
                         }
                     }
                 }
