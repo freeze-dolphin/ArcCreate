@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using ArcCreate.ChartFormat;
 using ArcCreate.Gameplay.Judgement;
 using ArcCreate.Gameplay.Scenecontrol;
 using ArcCreate.Utility.Extension;
@@ -19,7 +18,7 @@ namespace ArcCreate.Gameplay.Data
 
         public Arc Arc { get; set; }
 
-        public ExpressionValue<float> Width { get; set; } = 1;
+        public float Width { get; set; } = 1;
 
         public float WorldX => Arc.WorldXAt(Timing);
 

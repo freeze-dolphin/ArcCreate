@@ -17,7 +17,7 @@ namespace ArcCreate.Gameplay.Chart
 
         public TimingEvent GetEventAt(int timing)
         {
-            int index = timings.BisectRight(timing, ev => ev.Timing.GetValueOrEval()) - 1;
+            int index = timings.BisectRight(timing, ev => ev.Timing) - 1;
             index = Mathf.Max(index, 0);
             return timings[index];
         }
@@ -197,7 +197,7 @@ namespace ArcCreate.Gameplay.Chart
 
         private IEnumerable<TimingEvent> FindTimingEventsByTiming(int from, int to)
         {
-            int i = timings.BisectLeft(from, n => n.Timing.GetValueOrEval());
+            int i = timings.BisectLeft(from, n => n.Timing);
 
             while (i >= 0 && i < timings.Count && timings[i].Timing >= from && timings[i].Timing <= to)
             {
@@ -208,8 +208,8 @@ namespace ArcCreate.Gameplay.Chart
 
         private IEnumerable<TimingEvent> FindTimingEventsWithinRange(int from, int to)
         {
-            int fromI = timings.BisectLeft(from, n => n.Timing.GetValueOrEval());
-            int toI = timings.BisectRight(to, n => n.Timing.GetValueOrEval());
+            int fromI = timings.BisectLeft(from, n => n.Timing);
+            int toI = timings.BisectRight(to, n => n.Timing);
 
             for (int i = fromI; i <= toI; i++)
             {

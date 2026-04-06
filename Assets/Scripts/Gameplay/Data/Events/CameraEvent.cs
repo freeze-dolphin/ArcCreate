@@ -1,42 +1,16 @@
-using ArcCreate.ChartFormat;
 using UnityEngine;
 
 namespace ArcCreate.Gameplay.Data
 {
     public class CameraEvent : ArcEvent
     {
-        public ExpressionValue<float> MoveX { get; set; } = 0;
-        public ExpressionValue<float> MoveY { get; set; } = 0;
-        public ExpressionValue<float> MoveZ { get; set; } = 0;
-        public ExpressionValue<float> RotateX { get; set; } = 0;
-        public ExpressionValue<float> RotateY { get; set; } = 0;
-        public ExpressionValue<float> RotateZ { get; set; } = 0;
+        public Vector3 Move { get; set; }
 
-        public Vector3 Move
-        {
-            get => new(MoveX.Value, MoveY.Value, MoveZ.Value);
-            set
-            {
-                MoveX = value.x;
-                MoveY = value.y;
-                MoveZ = value.z;
-            }
-        }
-
-        public Vector3 Rotate
-        {
-            get => new(RotateX.Value, RotateY.Value, RotateZ.Value);
-            set
-            {
-                RotateX = value.x;
-                RotateY = value.y;
-                RotateZ = value.z;
-            }
-        }
+        public Vector3 Rotate { get; set; }
 
         public CameraType CameraType { get; set; }
 
-        public ExpressionValue<int> Duration { get; set; } = 0;
+        public int Duration { get; set; }
 
         public bool IsReset => CameraType == CameraType.Reset;
 
@@ -45,14 +19,10 @@ namespace ArcCreate.Gameplay.Data
             return new CameraEvent
             {
                 Timing = Timing,
-                MoveX = MoveX,
-                MoveY = MoveY,
-                MoveZ = MoveZ,
-                RotateX = RotateX,
-                RotateY = RotateY,
-                RotateZ = RotateZ,
                 Duration = Duration,
                 CameraType = CameraType,
+                Move = Move,
+                Rotate = Rotate,
                 TimingGroup = TimingGroup,
             };
         }
@@ -60,13 +30,9 @@ namespace ArcCreate.Gameplay.Data
         public override void Assign(ArcEvent newValues)
         {
             base.Assign(newValues);
-            CameraEvent n = (newValues as CameraEvent)!;
-            MoveX = n.MoveX;
-            MoveY = n.MoveY;
-            MoveZ = n.MoveZ;
-            RotateX = n.RotateX;
-            RotateY = n.RotateY;
-            RotateZ = n.RotateZ;
+            CameraEvent n = newValues as CameraEvent;
+            Move = n.Move;
+            Rotate = n.Rotate;
             CameraType = n.CameraType;
             Duration = n.Duration;
             TimingGroup = n.TimingGroup;

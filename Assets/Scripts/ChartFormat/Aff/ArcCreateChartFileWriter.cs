@@ -150,14 +150,12 @@ namespace ArcCreate.ChartFormat
             stream.Flush();
         }
 
-        protected virtual string SerializeTiming(RawTiming timing)
-        {
-            return $"timing({timing.Timing},{timing.Bpm:f2},{timing.Divisor:f2});";
-        }
+        protected virtual string SerializeTiming(RawTiming timing) =>
+            $"timing({timing.Timing},{timing.Bpm:f2},{timing.Divisor:f2});";
 
         protected virtual string SerializeTap(RawTap tap)
         {
-            if (tap.Lane.TryGetValueOrEval(out var lane) && ParsingFormula.IsFloatedLane(lane))
+            if (ParsingFormula.IsFloatedLane(tap.Lane))
             {
                 return $"({tap.Timing},{tap.Lane:f3});";
             }
@@ -168,7 +166,7 @@ namespace ArcCreate.ChartFormat
 
         protected virtual string SerializeHold(RawHold hold)
         {
-            if (hold.Lane.TryGetValueOrEval(out var lane) && ParsingFormula.IsFloatedLane(lane))
+            if (ParsingFormula.IsFloatedLane(hold.Lane))
             {
                 return $"hold({hold.Timing},{hold.EndTiming},{hold.Lane:f3});";
             }
@@ -198,7 +196,7 @@ namespace ArcCreate.ChartFormat
             if (arcTaps == null || arcTaps.Count == 0) return "";
 
             var serialized = string.Join(",",
-                arcTaps.Select(x => x.Width.TryGetValueOrEval(out var width) && Mathf.Approximately(width, 1)
+                arcTaps.Select(x => Mathf.Approximately(x.Width, 1)
                     ? $"arctap({x.Timing})"
                     : $"arctap({x.Timing},{x.Width:f2})"));
 
@@ -209,7 +207,7 @@ namespace ArcCreate.ChartFormat
         {
             List<string> serialized = new();
 
-            if (arc.ArcResolution.IsExpr || !Mathf.Approximately(arc.ArcResolution, 1))
+            if (!Mathf.Approximately(arc.ArcResolution, 1))
             {
                 serialized.Add($"arcresolution: {arc.ArcResolution:f2}");
             }

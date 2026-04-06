@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using Jace;
 using Jace.Execution;
-using UnityEngine.VFX;
 
 namespace ArcCreate.Utility.Parser
 {
@@ -36,14 +35,7 @@ namespace ArcCreate.Utility.Parser
             engine ??= Engine!;
             return (float)engine.Calculate(str, variables);
         }
-        
-        public static float Calculate(string str, IEnumerable<KeyValuePair<string, double>> variables,
-            CalculationEngine engine = null)
-        {
-            engine ??= Engine!;
-            return (float)engine.Calculate(str, new Dictionary<string, double>(variables));
-        }
-        
+
         public static bool TryDouble(string str, out double value, CalculationEngine engine = null)
         {
             try

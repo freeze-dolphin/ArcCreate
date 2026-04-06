@@ -1,14 +1,12 @@
-using ArcCreate.ChartFormat;
-
 namespace ArcCreate.Gameplay.Data
 {
     public class TimingEvent : ArcEvent
     {
         public double FloorPosition { get; set; }
 
-        public ExpressionValue<float> Bpm { get; set; } = 0;
+        public float Bpm { get; set; }
 
-        public ExpressionValue<float> Divisor { get; set; } = 0;
+        public float Divisor { get; set; }
 
         public override ArcEvent Clone()
         {

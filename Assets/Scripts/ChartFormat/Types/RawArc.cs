@@ -7,19 +7,19 @@ namespace ArcCreate.ChartFormat
 {
     public class RawArc : RawEvent
     {
-        public ExpressionValue<int> EndTiming { get; set; } = 0;
+        public int EndTiming { get; set; }
 
-        public ExpressionValue<float> XStart { get; set; } = 0;
+        public float XStart { get; set; }
 
-        public ExpressionValue<float> XEnd { get; set; } = 0;
+        public float XEnd { get; set; }
 
         public string LineType { get; set; }
 
-        public ExpressionValue<float> YStart { get; set; } = 0;
+        public float YStart { get; set; }
 
-        public ExpressionValue<float> YEnd { get; set; } = 0;
+        public float YEnd { get; set; }
 
-        public ExpressionValue<int> Color { get; set; } = 0;
+        public int Color { get; set; }
 
         public bool IsTrace { get; set; }
 
@@ -29,7 +29,7 @@ namespace ArcCreate.ChartFormat
 
         #region Property
 
-        public ExpressionValue<float> ArcResolution { get; set; } = 1;
+        public float ArcResolution { get; set; } = 1;
 
         public Color? TraceColor { get; set; } = null;
 

@@ -1,11 +1,10 @@
-using ArcCreate.ChartFormat;
 using UnityEngine;
 
 namespace ArcCreate.Gameplay.Data
 {
     public abstract class LongNote : Note
     {
-        public ExpressionValue<int> EndTiming { get; set; } = 0;
+        public int EndTiming { get; set; }
 
         public double EndFloorPosition { get; set; }
 

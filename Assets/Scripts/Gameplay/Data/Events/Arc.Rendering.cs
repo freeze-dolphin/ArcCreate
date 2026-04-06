@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Diagnostics;
-using ArcCreate.ChartFormat;
 using ArcCreate.Gameplay.Judgement;
 using ArcCreate.Gameplay.Utility;
 using UnityEngine;
@@ -27,21 +26,21 @@ namespace ArcCreate.Gameplay.Data
         // Avoid infinite recursion
         private bool recursivelyCalled = false;
 
-        public ExpressionValue<float> XStart { get; set; } = 0;
+        public float XStart { get; set; }
 
-        public ExpressionValue<float> YStart { get; set; }= 0;
+        public float YStart { get; set; }
 
-        public ExpressionValue<float> XEnd { get; set; }= 0;
+        public float XEnd { get; set; }
 
-        public ExpressionValue<float> YEnd { get; set; }= 0;
+        public float YEnd { get; set; }
 
-        public ExpressionValue<int> Color { get; set; } = 0;
+        public int Color { get; set; }
 
         public bool IsTrace { get; set; }
 
         public string Sfx { get; set; }
 
-        public ExpressionValue<float> ArcResolution { get; set; } = 1;
+        public float ArcResolution { get; set; }
 
         public Color? TraceColor { get; set; }
 
@@ -287,7 +286,7 @@ namespace ArcCreate.Gameplay.Data
             {
                 if (IsTrace)
                 {
-                    Services.Render.DrawTraceHead(matrix, color, IsSelected, TraceColor.HasValue);
+                    Services.Render.DrawTraceHead(matrix, TraceColor ?? color, IsSelected);
                 }
                 else
                 {

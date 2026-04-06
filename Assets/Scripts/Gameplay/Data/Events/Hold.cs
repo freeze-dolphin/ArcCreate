@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using ArcCreate.ChartFormat;
 using ArcCreate.Gameplay.Judgement;
 using ArcCreate.Utility;
 using ArcCreate.Utility.Extension;
@@ -19,7 +18,7 @@ namespace ArcCreate.Gameplay.Data
         private bool spawnedParticleThisFrame = false;
         private Texture texture;
 
-        public ExpressionValue<float> Lane { get; set; } = 0;
+        public float Lane { get; set; }
 
         public bool IsLocked => locked;
 

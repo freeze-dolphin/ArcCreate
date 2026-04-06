@@ -1,5 +1,4 @@
 using System;
-using ArcCreate.ChartFormat;
 
 namespace ArcCreate.Gameplay.Data
 {
@@ -8,7 +7,7 @@ namespace ArcCreate.Gameplay.Data
         /// <summary>
         /// Gets the note's timing.
         /// </summary>
-        ExpressionValue<int> Timing { get; }
+        int Timing { get; }
 
         /// <summary>
         /// Gets the floor position value tied to the timing of this note.

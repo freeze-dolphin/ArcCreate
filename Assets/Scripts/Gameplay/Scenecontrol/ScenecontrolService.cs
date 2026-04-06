@@ -109,7 +109,7 @@ namespace ArcCreate.Gameplay.Scenecontrol
 
         public IEnumerable<ScenecontrolEvent> FindByTiming(int from, int to)
         {
-            int i = events.BisectLeft(from, n => n.Timing.GetValueOrEval());
+            int i = events.BisectLeft(from, n => n.Timing);
             while (i >= 0 && i < events.Count && events[i].Timing >= from && events[i].Timing <= to)
             {
                 yield return events[i];

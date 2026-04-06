@@ -1,5 +1,3 @@
-using ArcCreate.ChartFormat;
-
 namespace ArcCreate.Gameplay.Data
 {
     public interface ILongNote : INote
@@ -7,7 +5,7 @@ namespace ArcCreate.Gameplay.Data
         /// <summary>
         /// Gets the note's end timing.
         /// </summary>
-        ExpressionValue<int> EndTiming { get; }
+        int EndTiming { get; }
 
         /// <summary>
         /// Gets the floor position value tied to the end timing of this note.

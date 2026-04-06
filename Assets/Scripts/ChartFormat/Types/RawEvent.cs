@@ -4,7 +4,7 @@ namespace ArcCreate.ChartFormat
 {
     public class RawEvent
     {
-        public ExpressionValue<int> Timing { get; set; } = 0;
+        public int Timing { get; set; }
 
         public RawEventType Type { get; set; }
 

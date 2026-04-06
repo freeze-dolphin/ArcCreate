@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using ArcCreate.ChartFormat;
 using ArcCreate.Compose.Components;
 using ArcCreate.Compose.History;
 using ArcCreate.Compose.Navigation;
