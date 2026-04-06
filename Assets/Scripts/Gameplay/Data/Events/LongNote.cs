@@ -5,7 +5,7 @@ namespace ArcCreate.Gameplay.Data
 {
     public abstract class LongNote : Note
     {
-        public ExpressionValue<int> EndTiming { get; set; }
+        public ExpressionValue<int> EndTiming { get; set; } = 0;
 
         public double EndFloorPosition { get; set; }
 

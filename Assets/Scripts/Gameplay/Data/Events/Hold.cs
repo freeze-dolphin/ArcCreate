@@ -19,7 +19,7 @@ namespace ArcCreate.Gameplay.Data
         private bool spawnedParticleThisFrame = false;
         private Texture texture;
 
-        public ExpressionValue<float> Lane { get; set; }
+        public ExpressionValue<float> Lane { get; set; } = 0;
 
         public bool IsLocked => locked;
 

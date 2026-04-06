@@ -27,21 +27,21 @@ namespace ArcCreate.Gameplay.Data
         // Avoid infinite recursion
         private bool recursivelyCalled = false;
 
-        public ExpressionValue<float> XStart { get; set; }
+        public ExpressionValue<float> XStart { get; set; } = 0;
 
-        public ExpressionValue<float> YStart { get; set; }
+        public ExpressionValue<float> YStart { get; set; }= 0;
 
-        public ExpressionValue<float> XEnd { get; set; }
+        public ExpressionValue<float> XEnd { get; set; }= 0;
 
-        public ExpressionValue<float> YEnd { get; set; }
+        public ExpressionValue<float> YEnd { get; set; }= 0;
 
-        public ExpressionValue<int> Color { get; set; }
+        public ExpressionValue<int> Color { get; set; } = 0;
 
         public bool IsTrace { get; set; }
 
         public string Sfx { get; set; }
 
-        public ExpressionValue<float> ArcResolution { get; set; }
+        public ExpressionValue<float> ArcResolution { get; set; } = 1;
 
         public Color? TraceColor { get; set; }
 
@@ -287,7 +287,7 @@ namespace ArcCreate.Gameplay.Data
             {
                 if (IsTrace)
                 {
-                    Services.Render.DrawTraceHead(matrix, TraceColor ?? color, IsSelected);
+                    Services.Render.DrawTraceHead(matrix, color, IsSelected, TraceColor.HasValue);
                 }
                 else
                 {

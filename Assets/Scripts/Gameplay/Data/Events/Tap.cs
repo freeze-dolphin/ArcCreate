@@ -15,7 +15,7 @@ namespace ArcCreate.Gameplay.Data
 
         public HashSet<ArcTap> ConnectedArcTaps { get; } = new HashSet<ArcTap>();
 
-        public ExpressionValue<float> Lane { get; set; }
+        public ExpressionValue<float> Lane { get; set; } = 0;
 
         public override ArcEvent Clone()
         {

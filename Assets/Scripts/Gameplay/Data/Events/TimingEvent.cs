@@ -6,9 +6,9 @@ namespace ArcCreate.Gameplay.Data
     {
         public double FloorPosition { get; set; }
 
-        public ExpressionValue<float> Bpm { get; set; }
+        public ExpressionValue<float> Bpm { get; set; } = 0;
 
-        public ExpressionValue<float> Divisor { get; set; }
+        public ExpressionValue<float> Divisor { get; set; } = 0;
 
         public override ArcEvent Clone()
         {

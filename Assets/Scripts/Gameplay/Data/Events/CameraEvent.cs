@@ -5,12 +5,12 @@ namespace ArcCreate.Gameplay.Data
 {
     public class CameraEvent : ArcEvent
     {
-        public ExpressionValue<float> MoveX { get; set; }
-        public ExpressionValue<float> MoveY { get; set; }
-        public ExpressionValue<float> MoveZ { get; set; }
-        public ExpressionValue<float> RotateX { get; set; }
-        public ExpressionValue<float> RotateY { get; set; }
-        public ExpressionValue<float> RotateZ { get; set; }
+        public ExpressionValue<float> MoveX { get; set; } = 0;
+        public ExpressionValue<float> MoveY { get; set; } = 0;
+        public ExpressionValue<float> MoveZ { get; set; } = 0;
+        public ExpressionValue<float> RotateX { get; set; } = 0;
+        public ExpressionValue<float> RotateY { get; set; } = 0;
+        public ExpressionValue<float> RotateZ { get; set; } = 0;
 
         public Vector3 Move
         {
@@ -36,7 +36,7 @@ namespace ArcCreate.Gameplay.Data
 
         public CameraType CameraType { get; set; }
 
-        public ExpressionValue<int> Duration { get; set; }
+        public ExpressionValue<int> Duration { get; set; } = 0;
 
         public bool IsReset => CameraType == CameraType.Reset;
 
