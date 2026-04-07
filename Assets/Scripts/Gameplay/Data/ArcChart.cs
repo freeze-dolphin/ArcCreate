@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using ArcCreate.ChartFormat;
+using UnityEngine;
 
 namespace ArcCreate.Gameplay.Data
 {
@@ -71,7 +72,7 @@ namespace ArcCreate.Gameplay.Data
                             YStart = raw.YStart,
                             Sfx = raw.Sfx,
                             ArcResolution = raw.ArcResolution,
-                            TraceColor = raw.TraceColor
+                            TraceColor = raw.TraceColor ?? Option<Color>.None()
                         };
 
                         if (raw.ArcTaps != null)

@@ -42,7 +42,7 @@ namespace ArcCreate.Gameplay.Data
 
         public float ArcResolution { get; set; } = 1f;
 
-        public Color? TraceColor { get; set; }
+        public Option<Color> TraceColor { get; set; } = Option<Color>.None();
 
         public ArcLineType LineType { get; set; }
 
@@ -203,7 +203,7 @@ namespace ArcCreate.Gameplay.Data
                 alpha *= Values.MaxArcAlpha;
             }
 
-            Color color = TraceColor ?? groupProperties.Color;
+            Color color = TraceColor.Or(groupProperties.Color);
             color.a *= Mathf.Min(alpha, arcGroupAlpha);
 
             int clipToTiming;
@@ -286,7 +286,7 @@ namespace ArcCreate.Gameplay.Data
             {
                 if (IsTrace)
                 {
-                    Services.Render.DrawTraceHead(matrix, TraceColor ?? color, IsSelected);
+                    Services.Render.DrawTraceHead(matrix, TraceColor.Or(color), IsSelected);
                 }
                 else
                 {
@@ -296,7 +296,7 @@ namespace ArcCreate.Gameplay.Data
 
             if (!groupProperties.NoArcCap && shouldDrawArcCap)
             {
-                Services.Render.DrawArcCap(arcCap, matrix * arcCapMatrix, (TraceColor ?? arcCapColor) * groupProperties.Color, isControllerMode);
+                Services.Render.DrawArcCap(arcCap, matrix * arcCapMatrix, (TraceColor.Or(arcCapColor)) * groupProperties.Color, isControllerMode);
             }
 
             if (currentTiming <= longParticleUntil && currentTiming >= Timing && currentTiming <= EndTiming)
