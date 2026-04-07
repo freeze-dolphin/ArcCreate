@@ -214,7 +214,7 @@ namespace ArcCreate.ChartFormat
 
             if (arc.TraceColor.HasValue)
             {
-                serialized.Add($"tracecolor: #{ColorUtility.ToHtmlStringRGB(arc.TraceColor.Value)}");
+                serialized.Add($"tracecolor: #{ColorUtility.ToHtmlStringRGBA(arc.TraceColor.Value)}");
             }
 
             return serialized.Count > 0 ? $"< {string.Join(", ", serialized)} >" : "";
