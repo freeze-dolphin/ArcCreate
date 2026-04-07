@@ -892,6 +892,8 @@ Compose:
       Lane: Lane
       StartPos: From
       EndPos: To
+      ArcResolution: <size=10>Reso-<br>lution
+      TraceColor: <size=10>Trace<br>Color
       Sfx: Sfx
       Width: Width
       Group: Group
