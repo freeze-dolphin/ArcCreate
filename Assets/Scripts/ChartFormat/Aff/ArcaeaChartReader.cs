@@ -160,7 +160,7 @@ namespace ArcCreate.ChartFormat
             // timing group properties are connected by '_' in Arcaea
             // an empty AntlrValue takes one place in Values list, so its count should be constant 1 
             // but for generality we assert its count to be <= 1
-            validator.Require(evt.Values.Count <= 1);
+            validator.Require(evt.Values.Count <= 1, GetTimingGroupPropertiesRaw(raw));
 
             var propDict = new Dictionary<string, string>();
 
@@ -177,7 +177,7 @@ namespace ArcCreate.ChartFormat
                     if (!match.Success)
                     {
                         throw new AntlrParseException("Invalid timing group properties", evt.Raw,
-                            RawEventType.AntlrValue, evt.LineNumber, evt.ColumnNumber);
+                                                      RawEventType.AntlrValue, evt.LineNumber, evt.ColumnNumber);
                     }
 
                     string name = match.Groups[1].Value;
@@ -330,8 +330,7 @@ namespace ArcCreate.ChartFormat
             validator.Require(evt.Values[4].TryGetStringValue(out var lineType));
             validator.Require(evt.Values[5].TryGetAlgebraicValue(out var yStart));
             validator.Require(evt.Values[6].TryGetAlgebraicValue(out var yEnd));
-            validator.Require(evt.Values[7].TryGetIntegerValue(out var color) && color >= 0,
-                ChartError.Kind.ArcColorNegative);
+            validator.Require(evt.Values[7].TryGetIntegerValue(out var color) && color >= 0, errorKind: ChartError.Kind.ArcColorNegative);
             validator.Require(evt.Values[8].TryGetStringValue(out var hitSound));
             validator.Require(evt.Values[9].TryGetStringValue(out var arcType));
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using ArcCreate.ChartFormat.Grammar;
 using ArcCreate.Utility.Parser;
 using UnityEngine;
@@ -254,6 +255,16 @@ namespace ArcCreate.ChartFormat
                 new ParsingError("No header found", 0, lines[0].Length, ParsingError.Kind.CharacterNotFound));
         }
 
+        protected static string GetTimingGroupPropertiesRaw(string eventRaw)
+        {
+            var rawMatch = Regex.Match(eventRaw, @"timinggroup\((.*?)\)");
+            var timingGroupPropRaw = rawMatch.Success 
+                ? $"timinggroup({rawMatch.Groups[1].Value}){{...}}"
+                : "timinggroup(){...}";
+            
+            return timingGroupPropRaw;
+        }
+        
         public override RawTimingGroup ParseTimingGroupProperties(string raw, AntlrEvent evt)
         {
             var propDict = new Dictionary<string, string>();
@@ -382,7 +393,7 @@ namespace ArcCreate.ChartFormat
                             prop.AddRemapRules(value, JudgementMap.MissLate);
                             break;
                         default:
-                            throw new ChartReaderException(raw, RawEventType.TimingGroup, evt,
+                            throw new ChartReaderException(GetTimingGroupPropertiesRaw(raw), RawEventType.TimingGroup, evt,
                                 ChartError.Kind.TimingGroupPropertiesInvalid);
                     }
                 }
@@ -501,8 +512,7 @@ namespace ArcCreate.ChartFormat
             validator.Require(evt.Values.Count == 3);
             validator.Require(evt.Values[0].TryGetIntegerValue(out var tick));
             validator.Require(evt.Values[1].TryGetAlgebraicValue(out var bpm));
-            validator.Require(evt.Values[2].TryGetAlgebraicValue(out var divisor) && divisor >= 0,
-                ChartError.Kind.DivisorNegative);
+            validator.Require(evt.Values[2].TryGetAlgebraicValue(out var divisor) && divisor >= 0, errorKind: ChartError.Kind.DivisorNegative);
 
             return new RawTiming
             {
@@ -527,8 +537,7 @@ namespace ArcCreate.ChartFormat
             validator.Require(evt.Values[4].TryGetStringValue(out var lineType));
             validator.Require(evt.Values[5].TryGetAlgebraicValue(out var yStart));
             validator.Require(evt.Values[6].TryGetAlgebraicValue(out var yEnd));
-            validator.Require(evt.Values[7].TryGetIntegerValue(out var color) && color >= 0,
-                ChartError.Kind.ArcColorNegative);
+            validator.Require(evt.Values[7].TryGetIntegerValue(out var color) && color >= 0, errorKind: ChartError.Kind.ArcColorNegative);
             validator.Require(evt.Values[8].TryGetStringValue(out var hitSound));
             validator.Require(evt.Values[9].TryGetStringValue(out var arcType));
 
@@ -667,8 +676,7 @@ namespace ArcCreate.ChartFormat
             validator.Require(evt.Values[5].TryGetAlgebraicValue(out var ry));
             validator.Require(evt.Values[6].TryGetAlgebraicValue(out var rz));
             validator.Require(evt.Values[7].TryGetStringValue(out var type));
-            validator.Require(evt.Values[8].TryGetIntegerValue(out var duration) && duration >= 0,
-                ChartError.Kind.DurationNegative);
+            validator.Require(evt.Values[8].TryGetIntegerValue(out var duration) && duration >= 0, errorKind: ChartError.Kind.DurationNegative);
 
             return new RawCamera
             {

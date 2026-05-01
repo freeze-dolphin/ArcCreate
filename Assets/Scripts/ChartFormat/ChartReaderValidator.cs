@@ -14,11 +14,11 @@ namespace ArcCreate.ChartFormat
             EventType = eventType;
         }
 
-        public void Require(bool condition, ChartError.Kind errorKind = ChartError.Kind.Parsing)
+        public void Require(bool condition, string raw = null, ChartError.Kind errorKind = ChartError.Kind.Parsing)
         {
             if (!condition)
             {
-                throw new ChartReaderException(Event.Raw, EventType, Event, errorKind);
+                throw new ChartReaderException(raw ?? Event.Raw, EventType, Event, errorKind);
             }
         }
     }
